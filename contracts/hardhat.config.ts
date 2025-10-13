@@ -1,5 +1,6 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "@oasisprotocol/sapphire-hardhat";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -16,6 +17,11 @@ const config: HardhatUserConfig = {
     sepolia: {
       url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts: [process.env.PRIVATE_KEY!]
+    },
+    sapphire_testnet: {
+      url: "https://testnet.sapphire.oasis.io",
+      accounts: [process.env.PRIVATE_KEY!],
+      chainId: 0x5aff
     }
   }
 };

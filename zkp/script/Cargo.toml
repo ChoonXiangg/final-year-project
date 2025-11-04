@@ -1,20 +1,20 @@
 [package]
 version = "0.1.0"
-name = "fibonacci-script"
+name = "passport-verifier-script"
 edition = "2021"
-default-run = "fibonacci"
+default-run = "age-prover"
 
 [[bin]]
-name = "fibonacci"
-path = "src/bin/main.rs"
+name = "age-prover"
+path = "src/bin/age.rs"
 
 [[bin]]
-name = "evm"
-path = "src/bin/evm.rs"
+name = "nationality-prover"
+path = "src/bin/nationality.rs"
 
 [[bin]]
-name = "vkey"
-path = "src/bin/vkey.rs"
+name = "wallet-prover"
+path = "src/bin/connection.rs"
 
 [dependencies]
 sp1-sdk = "5.0.8"
@@ -24,7 +24,7 @@ clap = { version = "4.0", features = ["derive", "env"] }
 tracing = "0.1.40"
 hex = "0.4.3"
 alloy-sol-types = { workspace = true }
-fibonacci-lib = { path = "../lib" }
+passport-verifier-lib = { path = "../lib" }
 dotenv = "0.15.0"
 
 [build-dependencies]

@@ -1420,38 +1420,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fibonacci-lib"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types",
-]
-
-[[package]]
-name = "fibonacci-program"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types",
- "fibonacci-lib",
- "sp1-zkvm",
-]
-
-[[package]]
-name = "fibonacci-script"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types",
- "clap",
- "dotenv",
- "fibonacci-lib",
- "hex",
- "serde",
- "serde_json",
- "sp1-build",
- "sp1-sdk",
- "tracing",
-]
-
-[[package]]
 name = "fixed-hash"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2932,6 +2900,42 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "passport-verifier-lib"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "serde",
+ "sha2",
+]
+
+[[package]]
+name = "passport-verifier-program"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "passport-verifier-lib",
+ "serde",
+ "sha2",
+ "sp1-zkvm",
+]
+
+[[package]]
+name = "passport-verifier-script"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "clap",
+ "dotenv",
+ "hex",
+ "passport-verifier-lib",
+ "serde",
+ "serde_json",
+ "sp1-build",
+ "sp1-sdk",
+ "tracing",
 ]
 
 [[package]]

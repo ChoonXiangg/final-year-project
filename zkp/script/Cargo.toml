@@ -26,6 +26,7 @@ hex = "0.4.3"
 alloy-sol-types = { workspace = true }
 passport-verifier-lib = { path = "../lib" }
 dotenv = "0.15.0"
+chrono = "0.4"
 
 [build-dependencies]
 sp1-build = "5.0.8"

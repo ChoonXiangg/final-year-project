@@ -2,6 +2,7 @@ use clap::Parser;
 use passport_verifier_lib::{AgeVerificationOutput, Date, PassportData, VerificationMode};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use alloy_sol_types::SolValue;
+use chrono::{Local, Datelike};
 
 // ELF binary for the passport verification program
 const PASSPORT_ELF: &[u8] = include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/passport-verifier-program");
@@ -67,11 +68,12 @@ fn main() {
         surname: args.surname,
     };
 
-    // Current date (in production, this would be fetched from a trusted source)
+    // Get the current date from the system
+    let now = Local::now();
     let current_date = Date {
-        year: 2025,
-        month: 11,
-        day: 1,
+        year: now.year() as u16,
+        month: now.month() as u8,
+        day: now.day() as u8,
     };
 
     println!("Generating age verification proof...");

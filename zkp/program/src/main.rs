@@ -1,30 +1,86 @@
-//! A simple program that takes a number `n` as input, and writes the `n-1`th and `n`th fibonacci
-//! number as an output.
-
-// These two lines are necessary for the program to properly compile.
-//
-// Under the hood, we wrap your main function with some extra code so that it behaves properly
-// inside the zkVM.
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy_sol_types::SolType;
-use fibonacci_lib::{fibonacci, PublicValuesStruct};
+use alloy_sol_types::SolValue;
+use passport_verifier_lib::*;
+
+// Verification mode
+#[derive(serde::Deserialize, serde::Serialize)]
+pub enum VerificationMode {
+    Age,
+    Nationality,
+    WalletBinding,
+}
 
 pub fn main() {
-    // Read an input to the program.
-    //
-    // Behind the scenes, this compiles down to a custom system call which handles reading inputs
-    // from the prover.
-    let n = sp1_zkvm::io::read::<u32>();
+    // Read the verification mode
+    let mode = sp1_zkvm::io::read::<VerificationMode>();
 
-    // Compute the n'th fibonacci number using a function from the workspace lib crate.
-    let (a, b) = fibonacci(n);
+    match mode {
+        VerificationMode::Age => verify_age(),
+        VerificationMode::Nationality => verify_nationality(),
+        VerificationMode::WalletBinding => verify_wallet_binding(),
+    }
+}
 
-    // Encode the public values of the program.
-    let bytes = PublicValuesStruct::abi_encode(&PublicValuesStruct { n, a, b });
+fn verify_age() {
+    // Read private inputs
+    let passport = sp1_zkvm::io::read::<PassportData>();
+    let current_date = sp1_zkvm::io::read::<Date>();
+    let min_age = sp1_zkvm::io::read::<u16>();
 
-    // Commit to the public values of the program. The final proof will have a commitment to all the
-    // bytes that were committed to.
+    // Calculate age (private computation)
+    let age = calculate_age(&passport.date_of_birth, &current_date);
+    let is_over_min_age = age >= min_age;
+
+    // Create passport commitment
+    let passport_commitment = create_passport_commitment(&passport);
+
+    // Prepare and commit public output
+    let output = AgeVerificationOutput {
+        is_over_18: is_over_min_age,
+        passport_commitment: passport_commitment.into(),
+    };
+
+    let bytes = AgeVerificationOutput::abi_encode(&output);
+    sp1_zkvm::io::commit_slice(&bytes);
+}
+
+fn verify_nationality() {
+    // Read private inputs
+    let passport = sp1_zkvm::io::read::<PassportData>();
+    let target_nationality = sp1_zkvm::io::read::<String>();
+
+    // Perform verification (private computation)
+    let is_match = passport.nationality == target_nationality;
+
+    // Create passport commitment
+    let passport_commitment = create_passport_commitment(&passport);
+
+    // Prepare and commit public output
+    let output = NationalityVerificationOutput {
+        is_target_nationality: is_match,
+        passport_commitment: passport_commitment.into(),
+    };
+
+    let bytes = NationalityVerificationOutput::abi_encode(&output);
+    sp1_zkvm::io::commit_slice(&bytes);
+}
+
+fn verify_wallet_binding() {
+    // Read private inputs
+    let passport = sp1_zkvm::io::read::<PassportData>();
+    let wallet_address = sp1_zkvm::io::read::<[u8; 20]>();
+
+    // Create deterministic binding commitment
+    let binding_commitment = create_wallet_binding(&passport, &wallet_address);
+
+    // Prepare and commit public output
+    let output = WalletBindingOutput {
+        binding_commitment: binding_commitment.into(),
+        wallet_address: wallet_address.into(),
+    };
+
+    let bytes = WalletBindingOutput::abi_encode(&output);
     sp1_zkvm::io::commit_slice(&bytes);
 }

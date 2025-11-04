@@ -1,9 +1,19 @@
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
 
-/// DATA STRUCTURES
+// VERIFICATION MODE
 
-/// Represents a date (year, month, day)
+// Verification mode for the passport verifier
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum VerificationMode {
+    Age,
+    Nationality,
+    WalletBinding,
+}
+
+// DATA STRUCTURES
+
+// Represents a date (year, month, day)
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Date {
     pub year: u16,
@@ -11,7 +21,7 @@ pub struct Date {
     pub day: u8,
 }
 
-/// Passport data structure (Machine Readable Zone fields)
+// Passport data structure (Machine Readable Zone fields)
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PassportData {
     pub document_number: String,
@@ -22,10 +32,10 @@ pub struct PassportData {
     pub surname: String,
 }
 
-/// SOLIDITY-COMPATIBLE OUTPUT STRUCTS
+// SOLIDITY-COMPATIBLE OUTPUT STRUCTS
 
 sol! {
-    /// Output for age verification proof
+    // Output for age verification proof
     struct AgeVerificationOutput {
         bool is_over_18;
         bytes32 passport_commitment;
@@ -33,7 +43,7 @@ sol! {
 }
 
 sol! {
-    /// Output for nationality verification proof
+    // Output for nationality verification proof
     struct NationalityVerificationOutput {
         bool is_target_nationality;
         bytes32 passport_commitment;
@@ -41,14 +51,14 @@ sol! {
 }
 
 sol! {
-    /// Output for wallet binding proof
+    // Output for wallet binding proof
     struct WalletBindingOutput {
         bytes32 binding_commitment;
         address wallet_address;
     }
 }
 
-/// Calculate age in years given birthdate and current date
+// Calculate age in years given birthdate and current date
 pub fn calculate_age(birth: &Date, current: &Date) -> u16 {
     let mut age = current.year - birth.year;
     
@@ -60,8 +70,8 @@ pub fn calculate_age(birth: &Date, current: &Date) -> u16 {
     age
 }
 
-/// Create a deterministic commitment from passport data
-/// This is used to link multiple proofs to the same passport without revealing identity
+// Create a deterministic commitment from passport data
+// This is used to link multiple proofs to the same passport without revealing identity
 pub fn create_passport_commitment(passport: &PassportData) -> [u8; 32] {
     use sha2::{Sha256, Digest};
     
@@ -78,7 +88,7 @@ pub fn create_passport_commitment(passport: &PassportData) -> [u8; 32] {
     commitment
 }
 
-/// Create wallet binding commitment
+// Create wallet binding commitment
 pub fn create_wallet_binding(passport: &PassportData, wallet_address: &[u8; 20]) -> [u8; 32] {
     use sha2::{Sha256, Digest};
     

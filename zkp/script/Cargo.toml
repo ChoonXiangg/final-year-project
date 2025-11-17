@@ -20,6 +20,10 @@ path = "src/bin/connection.rs"
 name = "age-evm"
 path = "src/bin/age_evm.rs"
 
+[[bin]]
+name = "vkey"
+path = "src/bin/vkey.rs"
+
 [dependencies]
 sp1-sdk = "5.2.2"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }

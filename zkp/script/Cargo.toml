@@ -16,8 +16,12 @@ path = "src/bin/nationality.rs"
 name = "wallet-prover"
 path = "src/bin/connection.rs"
 
+[[bin]]
+name = "age-evm"
+path = "src/bin/age_evm.rs"
+
 [dependencies]
-sp1-sdk = "5.0.8"
+sp1-sdk = "5.2.2"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.200", default-features = false, features = ["derive"] }
 clap = { version = "4.0", features = ["derive", "env"] }
@@ -29,4 +33,4 @@ dotenv = "0.15.0"
 chrono = "0.4"
 
 [build-dependencies]
-sp1-build = "5.0.8"
+sp1-build = "5.2.2"

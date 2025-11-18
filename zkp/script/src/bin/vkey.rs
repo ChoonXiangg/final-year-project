@@ -28,5 +28,4 @@ fn main() {
 
     println!("\nVerification key saved to: vkey.json");
     println!("This verification key can be used for both regular and Groth16 proofs");
-    println!("\nNext step: Generate Solidity verifier contract");
 }

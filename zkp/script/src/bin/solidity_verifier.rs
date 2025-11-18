@@ -81,11 +81,7 @@ contract SP1VerifierGateway {{
 
     println!("Solidity verifier gateway saved to: {}", gateway_path);
     println!("\nContract details:");
-    println!("  - VKey Hash: {}", vkey_hash);
-    println!("  - Type: SP1 Groth16 verifier gateway");
-    println!("  - Uses Succinct's deployed verifier contract");
-    println!("  - Gas cost: ~270k gas per verification");
-    println!("\nNOTE: You need to set SP1_VERIFIER address from:");
-    println!("  https://docs.succinct.xyz/onchain-verification/contract-addresses");
-    println!("\nNext step: Create PassportRegistry smart contract");
+    println!("VKey Hash: {}", vkey_hash);
+    println!("Type: SP1 Groth16 verifier gateway");
+    println!("Uses Succinct's deployed verifier contract");
 }

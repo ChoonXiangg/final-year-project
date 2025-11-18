@@ -142,5 +142,4 @@ fn main() {
 
     println!("Groth16 proof saved successfully!");
     println!("Proof file: {}", args.output);
-    println!("\nNext step: Extract verification key with vkey binary");
 }

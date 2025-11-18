@@ -24,6 +24,10 @@ path = "src/bin/age_evm.rs"
 name = "vkey"
 path = "src/bin/vkey.rs"
 
+[[bin]]
+name = "solidity-verifier"
+path = "src/bin/solidity_verifier.rs"
+
 [dependencies]
 sp1-sdk = "5.2.2"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }

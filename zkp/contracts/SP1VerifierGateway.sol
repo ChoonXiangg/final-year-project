@@ -20,9 +20,7 @@ interface ISP1Verifier {
 /// @dev Uses the Succinct-deployed SP1 Groth16 verifier
 contract SP1VerifierGateway {
     /// @notice The SP1 Groth16 verifier contract address (deployed by Succinct)
-    /// @dev For Sepolia: Use the address from https://docs.succinct.xyz/onchain-verification/contract-addresses
-    /// @dev For Mainnet: Use the address from https://docs.succinct.xyz/onchain-verification/contract-addresses
-    address public constant SP1_VERIFIER = address(0); // TODO: Set this to the deployed verifier address
+    address public constant SP1_VERIFIER = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B
 
     /// @notice The verification key hash for the passport verifier program
     bytes32 public constant PASSPORT_VKEY = 0x001cb39b2a1dce45a425e1be3ca098e27b1d6dc8b898ee6f6ee1108144eecf1d;

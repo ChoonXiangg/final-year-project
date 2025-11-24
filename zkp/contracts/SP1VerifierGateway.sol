@@ -20,7 +20,7 @@ interface ISP1Verifier {
 /// @dev Uses the Succinct-deployed SP1 Groth16 verifier
 contract SP1VerifierGateway {
     /// @notice The SP1 Groth16 verifier contract address (deployed by Succinct)
-    address public constant SP1_VERIFIER = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B
+    address public constant SP1_VERIFIER = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
     /// @notice The verification key hash for the passport verifier program
     bytes32 public constant PASSPORT_VKEY = 0x001cb39b2a1dce45a425e1be3ca098e27b1d6dc8b898ee6f6ee1108144eecf1d;

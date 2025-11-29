@@ -1,5 +1,5 @@
 use clap::Parser;
-use passport_verifier_lib::{Date, NationalityVerificationOutput, PassportData, VerificationMode};
+use passport_verifier_lib::{Date, PassportAttributes, WalletLinkOutput, ProofType};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use alloy_sol_types::SolValue;
 
@@ -37,9 +37,9 @@ struct Args {
     #[arg(long)]
     surname: String,
 
-    // Target nationality to verify against
+    // Wallet address (Ethereum format, without 0x prefix)
     #[arg(long)]
-    target_nationality: String,
+    wallet_address: String,
 }
 
 fn main() {
@@ -49,8 +49,17 @@ fn main() {
     // Parse command line arguments
     let args = Args::parse();
 
+    // Parse wallet address
+    let wallet_hex = args.wallet_address.trim_start_matches("0x");
+    let wallet_bytes = hex::decode(wallet_hex).expect("Invalid wallet address hex");
+    if wallet_bytes.len() != 20 {
+        panic!("Wallet address must be 20 bytes (40 hex characters)");
+    }
+    let mut wallet_address = [0u8; 20];
+    wallet_address.copy_from_slice(&wallet_bytes);
+
     // Create passport data from arguments
-    let passport = PassportData {
+    let passport = PassportAttributes {
         document_number: args.document_number,
         date_of_birth: Date {
             year: args.birth_year,
@@ -65,12 +74,14 @@ fn main() {
         nationality: args.nationality,
         given_names: args.given_names,
         surname: args.surname,
+        signature: vec![0xde, 0xad, 0xbe, 0xef], // Dummy signature
+        signed_attributes: vec![],
     };
 
-    println!("Generating nationality verification proof...");
+    println!("Generating wallet binding proof...");
     println!("Passport: {}", passport.document_number);
-    println!("Actual nationality: {}", passport.nationality);
-    println!("Target nationality: {}", args.target_nationality);
+    println!("Name: {} {}", passport.given_names, passport.surname);
+    println!("Wallet: 0x{}", hex::encode(wallet_address));
     println!();
 
     // Setup prover client
@@ -78,12 +89,12 @@ fn main() {
 
     // Prepare inputs
     let mut stdin = SP1Stdin::new();
-    stdin.write(&VerificationMode::Nationality);  // Write mode first
+    stdin.write(&ProofType::WalletLink);  // Write mode first
     stdin.write(&passport);
-    stdin.write(&args.target_nationality);
+    stdin.write(&wallet_address);
 
     // Generate proof
-    println!("Proving nationality verification...");
+    println!("Proving wallet binding...");
     let (pk, vk) = client.setup(PASSPORT_ELF);
     let proof = client.prove(&pk, &stdin).run().expect("Failed to generate proof");
 
@@ -95,11 +106,14 @@ fn main() {
     println!("Proof verified successfully!");
 
     // Decode and display public outputs
-    let output = NationalityVerificationOutput::abi_decode(&proof.public_values.as_slice()).unwrap();
+    let output = WalletLinkOutput::abi_decode(proof.public_values.as_slice()).unwrap();
     println!();
     println!("PUBLIC OUTPUTS:");
-    println!("  Is {} national: {}", args.target_nationality, output.is_target_nationality);
-    println!("  Passport commitment: 0x{}", hex::encode(output.passport_commitment));
+    println!("  Identity commitment: 0x{}", hex::encode(output.identity_commitment));
+    println!("  Wallet address: 0x{}", hex::encode(output.wallet_address));
     println!();
-    println!("Nationality verification complete!");
+    println!("This commitment can be stored on-chain to prevent sybil attacks!");
+    println!("   Same passport + different wallet = same identity commitment (but contract prevents rebinding)");
+    println!();
+    println!("Wallet binding complete!");
 }

@@ -8,92 +8,47 @@ use alloy_sol_types::private::U256;
 
 pub fn main() {
     // Read the verification mode
-    let mode = sp1_zkvm::io::read::<ProofType>();
+    // We only have one mode now, but keeping the read for future extensibility or consistency
+    let _mode = sp1_zkvm::io::read::<ProofType>();
 
-    match mode {
-        ProofType::AgeCheck => verify_age(),
-        ProofType::NationalityCheck => verify_nationality(),
-        ProofType::WalletLink => verify_wallet_binding(),
-    }
+    verify_passport_full();
 }
 
-fn verify_age() {
+fn verify_passport_full() {
     // Read inputs
     let passport = sp1_zkvm::io::read::<PassportAttributes>();
+    let wallet_address = sp1_zkvm::io::read::<[u8; 20]>();
     let current_timestamp = sp1_zkvm::io::read::<u64>();
     let min_age = sp1_zkvm::io::read::<u16>();
+    let target_nationality = sp1_zkvm::io::read::<String>();
 
-    // Verify signature
-    if !verify_passport_signature(&passport) {
-        panic!("Invalid passport signature");
-    }
-
-    // Calculate age
+    // 1. Verify Passport Signature
+    // In a real implementation, this would verify the RSA/ECDSA signature of the passport data
+    let is_valid_signature = verify_passport_signature(&passport);
+    
+    // 2. Verify Age
     let current_date = timestamp_to_date(current_timestamp);
     let age = calculate_age(&passport.date_of_birth, &current_date);
     let is_over_min_age = age >= min_age;
 
-    // Create identity commitment
+    // 3. Verify Nationality
+    let is_nationality_match = passport.nationality == target_nationality;
+
+    // 4. Create Identity Commitment
     let identity_commitment = derive_identity_commitment(&passport);
 
     // Prepare and commit public output
-    let output = AgeCheckOutput {
+    let output = PassportVerificationOutput {
+        is_valid_signature,
         is_over_min_age,
+        is_nationality_match,
         identity_commitment: identity_commitment.into(),
+        wallet_address: wallet_address.into(),
         min_age: U256::from(min_age),
+        target_nationality,
         current_timestamp: U256::from(current_timestamp),
     };
 
-    let bytes = AgeCheckOutput::abi_encode(&output);
-    sp1_zkvm::io::commit_slice(&bytes);
-}
-
-fn verify_nationality() {
-    // Read inputs
-    let passport = sp1_zkvm::io::read::<PassportAttributes>();
-    let target_nationality = sp1_zkvm::io::read::<String>();
-
-    // Verify signature
-    if !verify_passport_signature(&passport) {
-        panic!("Invalid passport signature");
-    }
-
-    // Perform verification
-    let is_match = passport.nationality == target_nationality;
-
-    // Create identity commitment
-    let identity_commitment = derive_identity_commitment(&passport);
-
-    // Prepare and commit public output
-    let output = NationalityCheckOutput {
-        is_match,
-        identity_commitment: identity_commitment.into(),
-        target_nationality,
-    };
-
-    let bytes = NationalityCheckOutput::abi_encode(&output);
-    sp1_zkvm::io::commit_slice(&bytes);
-}
-
-fn verify_wallet_binding() {
-    // Read inputs
-    let passport = sp1_zkvm::io::read::<PassportAttributes>();
-    let wallet_address = sp1_zkvm::io::read::<[u8; 20]>();
-
-    // Verify signature
-    if !verify_passport_signature(&passport) {
-        panic!("Invalid passport signature");
-    }
-
-    // Create identity commitment
-    let identity_commitment = derive_identity_commitment(&passport);
-
-    // Prepare and commit public output
-    let output = WalletLinkOutput {
-        identity_commitment: identity_commitment.into(),
-        wallet_address: wallet_address.into(),
-    };
-
-    let bytes = WalletLinkOutput::abi_encode(&output);
+    let bytes = PassportVerificationOutput::abi_encode(&output);
     sp1_zkvm::io::commit_slice(&bytes);
 }

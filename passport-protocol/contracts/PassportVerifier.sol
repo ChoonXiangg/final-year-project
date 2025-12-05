@@ -86,11 +86,6 @@ contract PassportVerifier {
                 revert TimestampOutOfRange();
             }
 
-            // Validate min age (e.g. must be at least 18)
-            if (minAge < 18) {
-                revert InvalidMinAge();
-            }
-
             // Check if identity was already verified
             if (isAgeVerified[identityCommitment]) {
                 revert AlreadyVerifiedForAge();

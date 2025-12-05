@@ -126,11 +126,15 @@ fn main() {
     println!("Target nationality: {}", output.target_nationality);
     println!("Identity commitment: 0x{}", hex::encode(output.identity_commitment));
 
-    // Save proof to file
-    println!("Saving proof to: {}", args.output);
-    std::fs::write(&args.output, proof.bytes())
+    // Save proof to file (JSON format with both proof and public values)
+    let output_path = args.output.replace(".bin", ".json");
+    let proof_json = serde_json::json!({
+        "proof": hex::encode(proof.bytes()),
+        "publicValues": hex::encode(proof.public_values.as_slice())
+    });
+    std::fs::write(&output_path, serde_json::to_string_pretty(&proof_json).unwrap())
         .expect("Failed to write proof to file");
 
     println!("Groth16 proof saved successfully!");
-    println!("Proof file: {}", args.output);
+    println!("Proof file: {}", output_path);
 }

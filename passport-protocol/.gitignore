@@ -1,36 +1,23 @@
-# Cargo build
-**/target
+# Rust
+target/
+**/*.rs.bk
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
 
-# Cargo config
-.cargo
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
 
-# Profile-guided optimization
-/tmp
-pgo-data.profdata
-
-# MacOS nuisances
+# Environment
+.env
 .DS_Store
 
-# Environment files (SENSITIVE - contains private keys)
-.env
-
-# Node modules
-node_modules/
-
-# Hardhat artifacts and cache
-artifacts/
-
-cache/
-
-typechain-types/
-
-# Generated proofs (large binary files)
+# SP1 / Project specific
 proofs/
-
-# Verification key (can be regenerated)
-vkey.json
-
-# Lock files (optional - some prefer to commit these)
-# package-lock.json
-# Cargo.lock
-
+elf/
+fixture/

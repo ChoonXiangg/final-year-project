@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 // Type of proof to generate
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ProofType {
-    AgeCheck,
-    NationalityCheck,
-    WalletLink,
+    ProofOfPassport,
 }
 
 // DATA STRUCTURES
@@ -38,29 +36,16 @@ pub struct PassportAttributes {
 // SOLIDITY-COMPATIBLE OUTPUT STRUCTS
 
 sol! {
-    // Output for age verification proof
-    struct AgeCheckOutput {
+    // Output for the combined passport verification proof
+    struct PassportVerificationOutput {
+        bool is_valid_signature;
         bool is_over_min_age;
-        bytes32 identity_commitment;
-        uint256 min_age;
-        uint256 current_timestamp;
-    }
-}
-
-sol! {
-    // Output for nationality verification proof
-    struct NationalityCheckOutput {
-        bool is_match;
-        bytes32 identity_commitment;
-        string target_nationality;
-    }
-}
-
-sol! {
-    // Output for wallet binding proof
-    struct WalletLinkOutput {
+        bool is_nationality_match;
         bytes32 identity_commitment;
         address wallet_address;
+        uint256 min_age;
+        string target_nationality;
+        uint256 current_timestamp;
     }
 }
 

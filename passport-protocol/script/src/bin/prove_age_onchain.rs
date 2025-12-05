@@ -2,7 +2,6 @@ use clap::Parser;
 use passport_verifier_lib::{AgeCheckOutput, Date, PassportAttributes, ProofType};
 use sp1_sdk::{ProverClient, SP1Stdin};
 use alloy_sol_types::SolValue;
-use chrono::{Local, Datelike};
 
 /// ELF binary for the passport verification program
 const PASSPORT_ELF: &[u8] = include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/passport-verifier-program");
@@ -137,11 +136,15 @@ fn main() {
     println!("Current timestamp: {}", output.current_timestamp);
     println!("Identity commitment: 0x{}", hex::encode(output.identity_commitment));
 
-    // Save proof to file
-    println!("Saving proof to: {}", args.output);
-    std::fs::write(&args.output, proof.bytes())
+    // Save proof to file (JSON format with both proof and public values)
+    let output_path = args.output.replace(".bin", ".json");
+    let proof_json = serde_json::json!({
+        "proof": hex::encode(proof.bytes()),
+        "publicValues": hex::encode(proof.public_values.as_slice())
+    });
+    std::fs::write(&output_path, serde_json::to_string_pretty(&proof_json).unwrap())
         .expect("Failed to write proof to file");
 
     println!("Groth16 proof saved successfully!");
-    println!("Proof file: {}", args.output);
+    println!("Proof file: {}", output_path);
 }

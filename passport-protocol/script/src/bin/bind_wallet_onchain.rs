@@ -3,46 +3,65 @@ use passport_verifier_lib::{Date, PassportAttributes, WalletLinkOutput, ProofTyp
 use sp1_sdk::{ProverClient, SP1Stdin};
 use alloy_sol_types::SolValue;
 
-// ELF binary for the passport verification program
+/// ELF binary for the passport verification program
 const PASSPORT_ELF: &[u8] = include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/passport-verifier-program");
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about = "Generate Groth16 proof for wallet binding")]
 struct Args {
-    // Passport document number
+    /// Passport document number
     #[arg(long)]
     document_number: String,
 
-    // Birth year
+    /// Birth year
     #[arg(long)]
     birth_year: u16,
 
-    // Birth month (1-12)
+    /// Birth month (1-12)
     #[arg(long)]
     birth_month: u8,
 
-    // Birth day (1-31)
+    /// Birth day (1-31)
     #[arg(long)]
     birth_day: u8,
 
-    // Nationality
+    /// Nationality
     #[arg(long)]
     nationality: String,
 
-    // Given names
+    /// Given names
     #[arg(long)]
     given_names: String,
 
-    // Surname
+    /// Surname
     #[arg(long)]
     surname: String,
 
-    // Wallet address (Ethereum format, without 0x prefix)
+    /// Expiry year
+    #[arg(long)]
+    expiry_year: u16,
+
+    /// Expiry month (1-12)
+    #[arg(long)]
+    expiry_month: u8,
+
+    /// Expiry day (1-31)
+    #[arg(long)]
+    expiry_day: u8,
+
+    /// Wallet address (Ethereum format, with or without 0x prefix)
     #[arg(long)]
     wallet_address: String,
+
+    /// Output file for proof (default: proof.bin)
+    #[arg(long, default_value = "proof.bin")]
+    output: String,
 }
 
 fn main() {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+
     // Setup logging
     sp1_sdk::utils::setup_logger();
 
@@ -58,7 +77,7 @@ fn main() {
     let mut wallet_address = [0u8; 20];
     wallet_address.copy_from_slice(&wallet_bytes);
 
-    // Create passport data from arguments
+    // Create passport data
     let passport = PassportAttributes {
         document_number: args.document_number,
         date_of_birth: Date {
@@ -67,9 +86,9 @@ fn main() {
             day: args.birth_day,
         },
         date_of_expiry: Date {
-            year: 2030,
-            month: 12,
-            day: 31,
+            year: args.expiry_year,
+            month: args.expiry_month,
+            day: args.expiry_day,
         },
         nationality: args.nationality,
         given_names: args.given_names,
@@ -78,50 +97,52 @@ fn main() {
         signed_attributes: vec![],
     };
 
-    println!("Generating wallet binding proof...");
+    println!("GENERATING GROTH16 PROOF FOR EVM");
     println!("Passport: {}", passport.document_number);
     println!("Name: {} {}", passport.given_names, passport.surname);
     println!("Wallet: 0x{}", hex::encode(wallet_address));
-    println!();
 
     // Setup prover client
     let client = ProverClient::from_env();
 
     // Prepare inputs
     let mut stdin = SP1Stdin::new();
-    stdin.write(&ProofType::WalletLink);  // Write mode first
+    stdin.write(&ProofType::WalletLink);
     stdin.write(&passport);
     stdin.write(&wallet_address);
 
-    // Generate proof
-    println!("Proving wallet binding...");
+    // Generate Groth16 proof
+    println!("[1/3] Setting up proving key...");
     let (pk, vk) = client.setup(PASSPORT_ELF);
-    let proof = client.prove(&pk, &stdin).run().expect("Failed to generate proof");
 
-    println!("Proof generated successfully!");
+    println!("[2/3] Generating Groth16 proof...");
 
-    // Verify proof
-    println!("Verifying proof...");
+    let proof = client
+        .prove(&pk, &stdin)
+        .groth16()  // Generate Groth16 proof for EVM
+        .run()
+        .expect("Failed to generate Groth16 proof");
+
+    println!("[3/3] Verifying proof...");
     client.verify(&proof, &vk).expect("Failed to verify proof");
-    println!("Proof verified successfully!");
 
-    // Save proof to file
-    let proof_data = serde_json::json!({
-        "proof": "", // Dummy proof bytes for local Mock verification
+    // Decode public outputs
+    let output = WalletLinkOutput::abi_decode(proof.public_values.as_slice())
+        .expect("Failed to decode public values");
+
+    println!("PROOF GENERATION SUCCESSFUL!");
+    println!("Identity commitment: 0x{}", hex::encode(output.identity_commitment));
+    println!("Wallet address: 0x{}", hex::encode(output.wallet_address));
+
+    // Save proof to file (JSON format with both proof and public values)
+    let output_path = args.output.replace(".bin", ".json");
+    let proof_json = serde_json::json!({
+        "proof": hex::encode(proof.bytes()),
         "publicValues": hex::encode(proof.public_values.as_slice())
     });
-    std::fs::write("proofs/wallet_proof.json", serde_json::to_string_pretty(&proof_data).unwrap()).expect("Failed to save proof");
-    println!("Proof saved to proofs/wallet_proof.json");
+    std::fs::write(&output_path, serde_json::to_string_pretty(&proof_json).unwrap())
+        .expect("Failed to write proof to file");
 
-    // Decode and display public outputs
-    let output = WalletLinkOutput::abi_decode(proof.public_values.as_slice()).unwrap();
-    println!();
-    println!("PUBLIC OUTPUTS:");
-    println!("  Identity commitment: 0x{}", hex::encode(output.identity_commitment));
-    println!("  Wallet address: 0x{}", hex::encode(output.wallet_address));
-    println!();
-    println!("This commitment can be stored on-chain to prevent sybil attacks!");
-    println!("   Same passport + different wallet = same identity commitment (but contract prevents rebinding)");
-    println!();
-    println!("Wallet binding complete!");
+    println!("Groth16 proof saved successfully!");
+    println!("Proof file: {}", output_path);
 }

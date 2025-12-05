@@ -96,6 +96,14 @@ fn main() {
     client.verify(&proof, &vk).expect("Failed to verify proof");
     println!("Proof verified successfully!");
 
+    // Save proof to file
+    let proof_data = serde_json::json!({
+        "proof": "", // Dummy proof bytes for local Mock verification
+        "publicValues": hex::encode(proof.public_values.as_slice())
+    });
+    std::fs::write("proofs/nationality_proof.json", serde_json::to_string_pretty(&proof_data).unwrap()).expect("Failed to save proof");
+    println!("Proof saved to proofs/nationality_proof.json");
+
     // Decode and display public outputs
     let output = NationalityCheckOutput::abi_decode(proof.public_values.as_slice()).unwrap();
     println!();

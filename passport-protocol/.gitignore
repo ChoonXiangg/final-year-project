@@ -11,12 +11,26 @@ pgo-data.profdata
 # MacOS nuisances
 .DS_Store
 
-# Proofs
-**/proof-with-pis.json
-**/proof-with-io.json
-
-# Env
+# Environment files (SENSITIVE - contains private keys)
 .env
 
 # Node modules
 node_modules/
+
+# Hardhat artifacts and cache
+artifacts/
+
+cache/
+
+typechain-types/
+
+# Generated proofs (large binary files)
+proofs/
+
+# Verification key (can be regenerated)
+vkey.json
+
+# Lock files (optional - some prefer to commit these)
+# package-lock.json
+# Cargo.lock
+

@@ -6,23 +6,31 @@ default-run = "age-prover"
 
 [[bin]]
 name = "age-prover"
-path = "src/bin/age.rs"
+path = "src/bin/prove_age.rs"
 
 [[bin]]
 name = "nationality-prover"
-path = "src/bin/nationality.rs"
+path = "src/bin/prove_nationality.rs"
 
 [[bin]]
 name = "wallet-prover"
-path = "src/bin/connection.rs"
+path = "src/bin/bind_wallet.rs"
 
 [[bin]]
 name = "age-evm"
-path = "src/bin/age_evm.rs"
+path = "src/bin/prove_age_onchain.rs"
+
+[[bin]]
+name = "nationality-evm"
+path = "src/bin/prove_nationality_onchain.rs"
+
+[[bin]]
+name = "wallet-evm"
+path = "src/bin/bind_wallet_onchain.rs"
 
 [[bin]]
 name = "vkey"
-path = "src/bin/vkey.rs"
+path = "src/bin/export_vkey.rs"
 
 [[bin]]
 name = "solidity-verifier"

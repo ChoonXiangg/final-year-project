@@ -18,6 +18,5 @@ coverage.json
 .DS_Store
 
 # SP1 / Project specific
-proofs/
 elf/
 fixture/

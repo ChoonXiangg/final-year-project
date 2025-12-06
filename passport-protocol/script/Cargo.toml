@@ -2,7 +2,6 @@
 version = "0.1.0"
 name = "passport-verifier-script"
 edition = "2021"
-default-run = "age-prover"
 
 [[bin]]
 name = "prove"
@@ -13,8 +12,8 @@ name = "vkey"
 path = "src/bin/export_vkey.rs"
 
 [[bin]]
-name = "solidity-verifier"
-path = "src/bin/solidity_verifier.rs"
+name = "evm"
+path = "src/bin/evm.rs"
 
 [dependencies]
 sp1-sdk = "5.2.2"
@@ -31,3 +30,5 @@ colored = "3.0.0"
 
 [build-dependencies]
 sp1-build = "5.2.2"
+
+

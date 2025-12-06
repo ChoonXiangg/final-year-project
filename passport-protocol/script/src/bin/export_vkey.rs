@@ -26,6 +26,9 @@ fn main() {
     std::fs::write("vkey.json", &vkey_bytes)
         .expect("Failed to write verification key to file");
 
+    std::fs::write("vkey_hash.txt", vk.bytes32())
+        .expect("Failed to write verification key hash to file");
+
     println!("\nVerification key saved to: vkey.json");
     println!("This verification key can be used for both regular and Groth16 proofs");
 }

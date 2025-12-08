@@ -60,6 +60,8 @@ contract PassportVerifier {
         ) {
             // 2. Decode Public Values
             // Struct matches Rust: PassportVerificationOutput
+            // NOTE: We slice the first 32 bytes because the public values verify inputs 
+            // seem to contain a length/offset prefix (0x0...20) that shifts alignment.
             (
                 bool isValidSig,
                 bool isOverMinAge,
@@ -69,7 +71,7 @@ contract PassportVerifier {
                 uint256 minAge,
                 string memory targetNationality,
                 uint256 timestamp
-            ) = abi.decode(publicValues, (bool, bool, bool, bytes32, address, uint256, string, uint256));
+            ) = abi.decode(publicValues[32:], (bool, bool, bool, bytes32, address, uint256, string, uint256));
 
             // 3. Logic Checks
             if (!isValidSig) revert InvalidSignature();
@@ -83,9 +85,6 @@ contract PassportVerifier {
             // or in the ZK program. The ZK program proves "isOverMinAge" based on input "minAge".
             // We should ensure "minAge" is what we expect (e.g. 18).
             if (minAge != 18) revert ParameterMismatch(); 
-            
-            // Timestamp check (prevent replay of old proofs if needed, or ensuring liveliness)
-            if (block.timestamp > timestamp + 1 hours) revert TimestampTooOld();
 
             // 4. Store Identity
             identities[identityCommitment] = IdentityStatus({

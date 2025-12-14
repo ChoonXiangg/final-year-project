@@ -31,6 +31,8 @@ struct VerificationRequirements {
 }
 
 fn main() {
+    // Enable verbose logging (debug level)
+    std::env::set_var("RUST_LOG", "debug");
     sp1_sdk::utils::setup_logger();
     dotenv::dotenv().ok();
 

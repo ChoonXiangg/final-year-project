@@ -8,19 +8,16 @@ async function main() {
 
   const SP1_VERIFIER_SEPOLIA = "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B";
 
-  // Check for vkey_hash.txt
-  const vkeyPath = path.join(__dirname, "../script/vkey_hash.txt");
-  if (!fs.existsSync(vkeyPath)) {
-    console.log("vkey_hash.txt not found, running export_vkey script...");
-    try {
-      execSync("cd script && cargo run --release --bin vkey", { stdio: 'inherit', cwd: path.join(__dirname, "..") });
-    } catch (e) {
-      console.error("Failed to generate vkey!");
-      process.exit(1);
-    }
+  // Read vkey from the existing proof file
+  const proofPath = path.join(__dirname, "../proofs/passport_proof_evm.json");
+  if (!fs.existsSync(proofPath)) {
+    console.error("❌ proofs/passport_proof_evm.json not found!");
+    console.error("Please refer to the README to generate a proof first.");
+    process.exit(1);
   }
 
-  const passportVKey = fs.readFileSync(vkeyPath, "utf8").trim();
+  const proofData = JSON.parse(fs.readFileSync(proofPath, "utf8"));
+  const passportVKey = proofData.vkey;
   console.log("Passport VKey:", passportVKey);
 
   // Get the contract factory

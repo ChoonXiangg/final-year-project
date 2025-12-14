@@ -41,6 +41,7 @@ contract PassportVerifier {
     error IdentityAlreadyVerified();
     error WalletMismatch();
     error ParameterMismatch();
+    error TimestampTooOld();
 
     constructor(address _sp1Verifier, bytes32 _passportVKey) {
         sp1Verifier = _sp1Verifier;
@@ -60,18 +61,16 @@ contract PassportVerifier {
 
             // 2. Decode Public Values
             // Handle potentially dynamic prefix length (SP1 sometimes adds 32 bytes offset)
-            bytes memory dataToDecode = publicValues;
+            bytes calldata dataToDecode = publicValues;
+            
             // Check if the first word is 0x20 (32). If so, it's likely an offset/length prefix we should skip.
             if (publicValues.length > 32) {
                  uint256 firstWord;
                  assembly {
-                     firstWord := mload(add(publicValues, 32)) 
+                     firstWord := calldataload(publicValues.offset)
                  }
                  if (firstWord == 32) {
                      // Slice off the first 32 bytes
-                     // NOTE: In strict solidity we can't easily slice 'calldata'. 
-                     // We would need to copy to memory or adjust the offset logic.
-                     // A safer way for calldata slicing:
                      dataToDecode = publicValues[32:];
                  }
             }

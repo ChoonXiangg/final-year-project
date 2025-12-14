@@ -3,22 +3,17 @@ const ethers = require("ethers");
 const readline = require("readline");
 
 async function main() {
-    // 1. Get input from Args or Stdin
-    let inputData = process.argv[2];
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
 
-    if (!inputData) {
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
+    const inputData = await new Promise(resolve => {
+        rl.question("Please paste the Transaction Input Data (Hex): ", (answer) => {
+            rl.close();
+            resolve(answer.trim());
         });
-
-        inputData = await new Promise(resolve => {
-            rl.question("Please paste the Transaction Input Data (Hex): ", (answer) => {
-                rl.close();
-                resolve(answer.trim());
-            });
-        });
-    }
+    });
 
     if (!inputData) {
         console.error("No input data provided.");
@@ -50,56 +45,27 @@ async function main() {
     console.log("Argument 1: Public Values (Raw Bytes)");
     console.log(publicValuesBytes);
 
-    console.log("\nArgument 2: Proof Bytes (Truncated)");
-    console.log(proofBytes.slice(0, 60) + "...");
+    console.log("\nArgument 2: Proof Bytes");
+    console.log(proofBytes);
     console.log("---------------------------------------------------\n");
-
-    // 3. Decode the Public Values structure
-    // The public values bytes themselves are encoded as a tuple:
-    // (bool, bool, bool, bytes32, address, uint256, string, uint256)
-
-    // Important: We need to handle the potential 32-byte prefix issue we saw earlier.
-    // Although normally abi.decode on the *result* of previous decode should be clean.
-    // The previous decode verified the outer ABI layer.
 
     let innerBytes = publicValuesBytes;
 
-    // Try decoding
+    // Check for the 32-byte length/offset prefix (0x...20) common in SP1 outputs
+    // 0x20 (32 decimal) is often the offset to the bytes content
+    const firstWord = innerBytes.slice(0, 66); // 0x + 64 chars
+    if (firstWord.endsWith("0000000000000000000000000000000000000000000000000000000000000020")) {
+        innerBytes = "0x" + innerBytes.slice(66);
+    }
+
     try {
-        // NOTE: Based on our previous debugging, the publicValues bytes coming from SP1 
-        // might have an extra 32-byte prefix (length or offset) when fed into Solidity 
-        // if not handled perfectly.
-        // Ethers ABI decoder expects standard ABI encoding.
-
-        // Let's inspect the first word of innerBytes to see if it's an offset (0x20 = 32)
-        // or if it's the first boolean (0x0...01 or 0x0...00).
-
-        const firstWord = innerBytes.slice(0, 66); // 0x + 64 chars
-        console.log("First word of Public Values:", firstWord);
-
-        // If the first word is 0x...20 (decimal 32), it generally means it's an offset to the start of the tuple 
-        // OR a length prefix if it was just "bytes".
-
-        // Let's try standard decoding first.
         const decodedValues = abiCoder.decode(
             ["bool", "bool", "bool", "bytes32", "address", "uint256", "string", "uint256"],
             innerBytes
         );
         printDecoded(decodedValues);
-
     } catch (e) {
-        console.log("Standard decode failed. Trying to skip first 32 bytes prefix...");
-        try {
-            // Skip 32 bytes (64 hex chars)
-            const slicedBytes = "0x" + innerBytes.slice(66);
-            const decodedValues = abiCoder.decode(
-                ["bool", "bool", "bool", "bytes32", "address", "uint256", "string", "uint256"],
-                slicedBytes
-            );
-            printDecoded(decodedValues);
-        } catch (e2) {
-            console.error("Decoding failed again:", e2.message);
-        }
+        console.error("Decoding failed:", e.message);
     }
 }
 

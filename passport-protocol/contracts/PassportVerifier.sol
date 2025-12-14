@@ -41,7 +41,6 @@ contract PassportVerifier {
     error IdentityAlreadyVerified();
     error WalletMismatch();
     error ParameterMismatch();
-    error TimestampTooOld();
 
     constructor(address _sp1Verifier, bytes32 _passportVKey) {
         sp1Verifier = _sp1Verifier;
@@ -58,10 +57,25 @@ contract PassportVerifier {
             publicValues,
             proofBytes
         ) {
+
             // 2. Decode Public Values
-            // Struct matches Rust: PassportVerificationOutput
-            // NOTE: We slice the first 32 bytes because the public values verify inputs 
-            // seem to contain a length/offset prefix (0x0...20) that shifts alignment.
+            // Handle potentially dynamic prefix length (SP1 sometimes adds 32 bytes offset)
+            bytes memory dataToDecode = publicValues;
+            // Check if the first word is 0x20 (32). If so, it's likely an offset/length prefix we should skip.
+            if (publicValues.length > 32) {
+                 uint256 firstWord;
+                 assembly {
+                     firstWord := mload(add(publicValues, 32)) 
+                 }
+                 if (firstWord == 32) {
+                     // Slice off the first 32 bytes
+                     // NOTE: In strict solidity we can't easily slice 'calldata'. 
+                     // We would need to copy to memory or adjust the offset logic.
+                     // A safer way for calldata slicing:
+                     dataToDecode = publicValues[32:];
+                 }
+            }
+
             (
                 bool isValidSig,
                 bool isOverMinAge,
@@ -71,18 +85,25 @@ contract PassportVerifier {
                 uint256 minAge,
                 string memory targetNationality,
                 uint256 timestamp
-            ) = abi.decode(publicValues[32:], (bool, bool, bool, bytes32, address, uint256, string, uint256));
+            ) = abi.decode(dataToDecode, (bool, bool, bool, bytes32, address, uint256, string, uint256));
 
             // 3. Logic Checks
             if (!isValidSig) revert InvalidSignature();
-            if (identities[identityCommitment].isVerified) revert IdentityAlreadyVerified();
+
+            // Replay Protection: Proof must be recent (within 30 days)
+            // This prevents using an old proof after the passport might have expired or been revoked
+            if (timestamp > block.timestamp || block.timestamp - timestamp > 30 days) {
+                revert TimestampTooOld();
+            }
+
+            if (identities[identityCommitment].isVerified && identities[identityCommitment].boundWallet != msg.sender) {
+                revert IdentityAlreadyVerified();
+            }
             
             // Ensure the proof binds to the sender (unless we allow relayers, but let's enforce binding)
             if (walletAddress != msg.sender) revert WalletMismatch();
 
             // Check specific requirements if needed (e.g., must be adult)
-            // For now we just store whatever the proof says, but usually you'd enforce requirements here
-            // or in the ZK program. The ZK program proves "isOverMinAge" based on input "minAge".
             // We should ensure "minAge" is what we expect (e.g. 18).
             if (minAge != 18) revert ParameterMismatch(); 
 
@@ -91,15 +112,16 @@ contract PassportVerifier {
                 isVerified: true,
                 verificationTimestamp: block.timestamp,
                 boundWallet: walletAddress,
-                nationality: targetNationality, // Only accurate if isNationalityMatch is true
+                // CRITICAL: Only store the nationality if the proof actually confirmed it matches!
+                // Otherwise a user could input "US", fail the match, but have "US" stored on-chain.
+                nationality: isNationalityMatch ? targetNationality : "", 
                 isAdult: isOverMinAge
             });
 
-            emit IdentityVerified(identityCommitment, walletAddress, targetNationality, isOverMinAge);
+            emit IdentityVerified(identityCommitment, walletAddress, isNationalityMatch ? targetNationality : "", isOverMinAge);
 
         } catch {
             revert InvalidProof();
         }
     }
 }
-

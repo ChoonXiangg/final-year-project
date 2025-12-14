@@ -1,0 +1,11 @@
+[package]
+version = "0.1.0"
+name = "passport-verifier-program"
+edition = "2021"
+
+[dependencies]
+alloy-sol-types = { workspace = true }
+sp1-zkvm = "5.0.8"
+passport-verifier-lib = { path = "../lib" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+sha2 = { version = "0.10", default-features = false }

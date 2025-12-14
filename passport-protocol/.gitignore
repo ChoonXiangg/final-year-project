@@ -1,0 +1,22 @@
+# Rust
+target/
+**/*.rs.bk
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+
+# Environment
+.env
+.DS_Store
+
+# SP1 / Project specific
+elf/
+fixture/

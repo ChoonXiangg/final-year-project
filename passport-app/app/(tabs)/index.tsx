@@ -1,10 +1,13 @@
 import { StyleSheet, Pressable } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   const handleScanPassport = () => {
-    console.log('Scan passport button pressed');
+    router.push('/camera');
   };
 
   return (

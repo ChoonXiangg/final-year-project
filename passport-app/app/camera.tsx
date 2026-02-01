@@ -1,10 +1,12 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useState } from 'react';
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { useState, useRef } from 'react';
+import { StyleSheet, View, Text, Pressable, Image } from 'react-native';
 
 export default function CameraScreen() {
   const [facing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const cameraRef = useRef<CameraView>(null);
 
   if (!permission) {
     return <View />;
@@ -21,28 +23,70 @@ export default function CameraScreen() {
     );
   }
 
-  const handleCapture = () => {
-    console.log('Capture button pressed');
-    // TODO: Implement passport capture logic
+  const handleCapture = async () => {
+    if (!cameraRef.current) {
+      console.log('Camera not ready');
+      return;
+    }
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync();
+
+      if (!photo) {
+        console.log('Failed to take picture');
+        return;
+      }
+
+      console.log('Photo taken:', photo.uri);
+      setCapturedImage(photo.uri);
+    } catch (error) {
+      console.error('Error capturing image:', error);
+    }
   };
 
-  return (
-    <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing}>
-        <View style={styles.overlay}>
-          <Text style={styles.header}>Please scan your passport</Text>
+  const handleRetake = () => {
+    setCapturedImage(null);
+  };
 
-          <View style={styles.frameContainer}>
-            <View style={styles.passportFrame} />
-          </View>
+  if (capturedImage) {
+    return (
+      <View style={styles.container}>
+        <Image source={{ uri: capturedImage }} style={styles.previewImage} />
 
-          <View style={styles.buttonContainer}>
-            <Pressable style={styles.captureButtonOuter} onPress={handleCapture}>
-              <View style={styles.captureButtonInner} />
+        <View style={styles.previewOverlay}>
+          <Text style={styles.previewHeader}>Passport Captured</Text>
+
+          <View style={styles.previewButtonContainer}>
+            <Pressable style={styles.retakeButton} onPress={handleRetake}>
+              <Text style={styles.retakeButtonText}>Retake</Text>
+            </Pressable>
+
+            <Pressable style={styles.confirmButton} onPress={() => console.log('Confirmed')}>
+              <Text style={styles.confirmButtonText}>Confirm</Text>
             </Pressable>
           </View>
         </View>
-      </CameraView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <CameraView ref={cameraRef} style={styles.camera} facing={facing} />
+
+      <View style={styles.overlay}>
+        <Text style={styles.header}>Please scan your passport</Text>
+
+        <View style={styles.frameContainer}>
+          <View style={styles.passportFrame} />
+        </View>
+
+        <View style={styles.buttonContainer}>
+          <Pressable style={styles.captureButtonOuter} onPress={handleCapture}>
+            <View style={styles.captureButtonInner} />
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -75,7 +119,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
   },
   header: {
@@ -96,7 +140,7 @@ const styles = StyleSheet.create({
   },
   passportFrame: {
     width: '90%',
-    aspectRatio: 1.42, // Standard passport aspect ratio (width/height)
+    aspectRatio: 1.42,
     borderWidth: 3,
     borderColor: '#FFFFFF',
     borderRadius: 8,
@@ -119,5 +163,56 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     backgroundColor: '#FFFFFF',
+  },
+  previewImage: {
+    flex: 1,
+    width: '100%',
+    resizeMode: 'contain',
+    backgroundColor: '#000000',
+  },
+  previewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    justifyContent: 'space-between',
+    paddingVertical: 60,
+  },
+  previewHeader: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
+  },
+  previewButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    gap: 20,
+  },
+  retakeButton: {
+    flex: 1,
+    backgroundColor: '#666666',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  retakeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

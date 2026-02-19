@@ -15,8 +15,9 @@ GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./credent
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
 
 
-def _google_configured() -> bool:
-    return os.path.isfile(GOOGLE_CREDENTIALS_PATH)
+def _google_configured() -> tuple[bool, str]:
+    """Validate credentials file structure. Returns (is_valid, message)."""
+    return google_ocr.validate_credentials(GOOGLE_CREDENTIALS_PATH)
 
 
 def _get_image_bytes(req) -> bytes:
@@ -53,10 +54,11 @@ def _get_image_bytes(req) -> bytes:
 
 @app.route("/health", methods=["GET"])
 def health():
-    configured = _google_configured()
+    valid, message = _google_configured()
     return jsonify({
-        "status": "healthy" if configured else "degraded",
-        "google_configured": configured,
+        "status": "healthy" if valid else "degraded",
+        "google_configured": valid,
+        "credentials_message": message,
         "credentials_file": GOOGLE_CREDENTIALS_PATH,
         "project_id": GOOGLE_PROJECT_ID,
     })
@@ -83,8 +85,8 @@ def ocr():
     try:
         full_text, lines = google_ocr.extract_text_from_image(image_bytes)
         return jsonify({"success": True, "text": full_text, "lines": lines})
-    except RuntimeError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 500
+    except google_ocr.GoogleOCRError as exc:
+        return jsonify({"success": False, "error": str(exc)}), exc.http_status
 
 
 @app.route("/ocr/passport", methods=["POST"])
@@ -123,8 +125,8 @@ def ocr_passport():
     try:
         passport_data, full_text, _confidence = google_ocr.analyze_passport_image(image_bytes)
         return jsonify({"success": True, "text": full_text, "data": passport_data})
-    except RuntimeError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 500
+    except google_ocr.GoogleOCRError as exc:
+        return jsonify({"success": False, "error": str(exc)}), exc.http_status
 
 
 # ---------------------------------------------------------------------------
@@ -132,12 +134,12 @@ def ocr_passport():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    if not _google_configured():
-        print("WARNING: Google Cloud credentials not found.")
-        print(f"Expected credentials file at: {GOOGLE_CREDENTIALS_PATH}")
+    valid, message = _google_configured()
+    if not valid:
+        print(f"WARNING: {message}")
         print("See .env.example for setup instructions.")
     else:
-        print(f"Google Cloud credentials loaded from: {GOOGLE_CREDENTIALS_PATH}")
+        print(f"Google Cloud credentials OK ({GOOGLE_CREDENTIALS_PATH})")
         if GOOGLE_PROJECT_ID:
             print(f"Project ID: {GOOGLE_PROJECT_ID}")
 

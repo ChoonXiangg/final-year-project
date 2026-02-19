@@ -1,12 +1,141 @@
 import os
 import re
+import time
+import json
 from datetime import date
 
 from google.cloud import vision
+from google.api_core import exceptions as gexc
 
+_VISION_TIMEOUT = 30        # seconds per API call
+_MAX_ATTEMPTS   = 4         # 1 initial + 3 retries
+_RETRY_DELAYS   = [1, 2, 4] # seconds between attempts
+
+
+# ---------------------------------------------------------------------------
+# Custom exceptions
+# ---------------------------------------------------------------------------
+
+class GoogleOCRError(RuntimeError):
+    """Base exception for all Google OCR failures."""
+    http_status: int = 500
+
+
+class AuthError(GoogleOCRError):
+    """Invalid or missing service-account credentials."""
+    http_status = 403
+
+
+class QuotaError(GoogleOCRError):
+    """Google Vision API quota exceeded."""
+    http_status = 429
+
+
+class BadImageError(GoogleOCRError):
+    """Image is corrupt, too small, or cannot be processed by Vision."""
+    http_status = 422
+
+
+class ServiceUnavailableError(GoogleOCRError):
+    """Google Vision API is temporarily unavailable (transient)."""
+    http_status = 503
+
+
+# ---------------------------------------------------------------------------
+# Credentials validation (used by /health)
+# ---------------------------------------------------------------------------
+
+def validate_credentials(path: str) -> tuple[bool, str]:
+    """
+    Check that the credentials JSON file exists and has the expected structure.
+    Returns (is_valid, message).
+    Does NOT make a network call.
+    """
+    if not os.path.isfile(path):
+        return False, f"Credentials file not found: {path}"
+    try:
+        with open(path) as f:
+            creds = json.load(f)
+    except json.JSONDecodeError:
+        return False, "Credentials file is not valid JSON."
+
+    required = {"type", "project_id", "private_key", "client_email"}
+    missing = required - set(creds.keys())
+    if missing:
+        return False, f"Credentials file is missing fields: {missing}"
+
+    if creds.get("type") != "service_account":
+        return False, f"Expected type 'service_account', got '{creds.get('type')}'."
+
+    return True, "OK"
+
+
+# ---------------------------------------------------------------------------
+# Internal: Vision API call with retry
+# ---------------------------------------------------------------------------
 
 def _get_client() -> vision.ImageAnnotatorClient:
     return vision.ImageAnnotatorClient()
+
+
+def _call_vision_api(image_bytes: bytes) -> vision.AnnotateImageResponse:
+    """
+    Call Google Vision DOCUMENT_TEXT_DETECTION with timeout and exponential
+    backoff retry for transient errors.
+
+    Raises:
+        AuthError             — bad credentials (403)
+        QuotaError            — quota exceeded (429)
+        BadImageError         — image rejected by Vision (422)
+        ServiceUnavailableError — still unavailable after all retries (503)
+        GoogleOCRError        — any other Google API error (500)
+    """
+    client = _get_client()
+    image  = vision.Image(content=image_bytes)
+    last_exc: GoogleOCRError | None = None
+
+    for attempt in range(_MAX_ATTEMPTS):
+        if attempt > 0:
+            time.sleep(_RETRY_DELAYS[attempt - 1])
+
+        try:
+            response = client.document_text_detection(
+                image=image,
+                timeout=_VISION_TIMEOUT,
+            )
+        except (gexc.PermissionDenied, gexc.Unauthenticated) as e:
+            raise AuthError(
+                f"Google Vision authentication failed. "
+                f"Check your service account credentials. ({e.message})"
+            ) from e
+        except gexc.ResourceExhausted as e:
+            raise QuotaError(
+                f"Google Vision API quota exceeded. "
+                f"Check your GCP quota limits. ({e.message})"
+            ) from e
+        except gexc.InvalidArgument as e:
+            raise BadImageError(
+                f"Image could not be processed by Google Vision. "
+                f"Ensure it is a valid JPEG/PNG and at least 64×64 px. ({e.message})"
+            ) from e
+        except (gexc.ServiceUnavailable, gexc.DeadlineExceeded) as e:
+            last_exc = ServiceUnavailableError(
+                f"Google Vision is temporarily unavailable "
+                f"(attempt {attempt + 1}/{_MAX_ATTEMPTS}). ({e.message})"
+            )
+            continue  # retry
+        except gexc.GoogleAPIError as e:
+            raise GoogleOCRError(f"Google Vision API error: {e.message}") from e
+
+        # Handle application-level errors returned inside the response
+        if response.error.message:
+            raise GoogleOCRError(
+                f"Google Vision returned an error: {response.error.message}"
+            )
+
+        return response
+
+    raise last_exc  # exhausted retries for transient error
 
 
 # ---------------------------------------------------------------------------
@@ -20,17 +149,12 @@ def extract_text_from_image(image_bytes: bytes) -> tuple[str, list[str]]:
     Returns:
         (full_text, lines) where lines is the text split by newline,
         with blank lines removed.
+
+    Raises:  GoogleOCRError (or a subclass) on API failure.
     """
-    client = _get_client()
-    image = vision.Image(content=image_bytes)
-    response = client.document_text_detection(image=image)
-
-    if response.error.message:
-        raise RuntimeError(f"Google Vision API error: {response.error.message}")
-
+    response = _call_vision_api(image_bytes)
     full_text = response.full_text_annotation.text if response.full_text_annotation else ""
     lines = [ln for ln in full_text.splitlines() if ln.strip()]
-
     return full_text, lines
 
 
@@ -231,16 +355,11 @@ def analyze_passport_image(image_bytes: bytes) -> tuple[dict | None, str, dict]:
         passport_data — structured dict or None if MRZ not found
         raw_text      — full OCR text from Vision
         confidence    — dict with keys: overall, mrz_line1, mrz_line2
+
+    Raises:  GoogleOCRError (or a subclass) on API failure.
     """
-    client = _get_client()
-    image = vision.Image(content=image_bytes)
-    response = client.document_text_detection(image=image)
-
-    if response.error.message:
-        raise RuntimeError(f"Google Vision API error: {response.error.message}")
-
+    response = _call_vision_api(image_bytes)
     full_text = response.full_text_annotation.text if response.full_text_annotation else ""
     passport_data = parse_mrz(full_text)
     confidence = _extract_mrz_confidence(response, full_text)
-
     return passport_data, full_text, confidence

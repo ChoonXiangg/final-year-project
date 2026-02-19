@@ -1,5 +1,11 @@
-.DS_Store
+# Claude code settings
 .claude
+
+# Environment files
+*/.env
+
+# Google Cloud service account credentials
+ocr-service/credentials.json
 
 # pytesseract tutorial
 pytesseract-tutorial

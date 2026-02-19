@@ -1,5 +1,8 @@
+# Visual Studio Code settings
+.vscode/
+
 # Claude code settings
-.claude
+.claude/
 
 # Environment files
 */.env

@@ -123,8 +123,8 @@ def ocr_passport():
         return jsonify({"success": False, "error": str(exc)}), 400
 
     try:
-        passport_data, full_text, _confidence = google_ocr.analyze_passport_image(image_bytes)
-        return jsonify({"success": True, "text": full_text, "data": passport_data})
+        passport_data, full_text, confidence = google_ocr.analyze_passport_image(image_bytes)
+        return jsonify({"success": True, "text": full_text, "data": passport_data, "confidence": confidence})
     except google_ocr.GoogleOCRError as exc:
         return jsonify({"success": False, "error": str(exc)}), exc.http_status
 

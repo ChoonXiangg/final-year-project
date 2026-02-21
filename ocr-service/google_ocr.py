@@ -1,10 +1,17 @@
+import io
 import os
 import re
 import time
 import json
 from datetime import date
 
+import pillow_heif
+from PIL import Image, ImageFilter, ImageOps
 from google.cloud import vision
+
+# Register HEIC/HEIF opener so Pillow can read iPhone photos (.heic, .heif,
+# and .avif files that are actually HEIC containers).
+pillow_heif.register_heif_opener(allow_incorrect_headers=True)
 from google.api_core import exceptions as gexc
 
 _VISION_TIMEOUT = 30        # seconds per API call
@@ -78,7 +85,10 @@ def _get_client() -> vision.ImageAnnotatorClient:
     return vision.ImageAnnotatorClient()
 
 
-def _call_vision_api(image_bytes: bytes) -> vision.AnnotateImageResponse:
+def _call_vision_api(
+    image_bytes: bytes,
+    image_context: vision.ImageContext | None = None,
+) -> vision.AnnotateImageResponse:
     """
     Call Google Vision DOCUMENT_TEXT_DETECTION with timeout and exponential
     backoff retry for transient errors.
@@ -101,6 +111,7 @@ def _call_vision_api(image_bytes: bytes) -> vision.AnnotateImageResponse:
         try:
             response = client.document_text_detection(
                 image=image,
+                image_context=image_context,
                 timeout=_VISION_TIMEOUT,
             )
         except (gexc.PermissionDenied, gexc.Unauthenticated) as e:
@@ -187,14 +198,14 @@ def _extract_mrz_confidence(response: vision.AnnotateImageResponse, mrz_text: st
         confidences = [conf for _, conf in symbol_data[idx: idx + len(line)]]
         return round(sum(confidences) / len(confidences), 4) if confidences else None
 
-    lines = [ln for ln in mrz_text.splitlines() if ln.strip()]
-    mrz_lines = [ln for ln in lines if re.match(r'^[A-Z0-9<]{44}$', ln.strip())]
+    lines = [_clean_mrz_line(ln) for ln in mrz_text.splitlines() if ln.strip()]
+    mrz_lines = [ln for ln in lines if re.match(r'^[A-Z0-9<]{44}$', ln)]
 
     line1_conf = _line_confidence(mrz_lines[0]) if len(mrz_lines) > 0 else None
     line2_conf = _line_confidence(mrz_lines[1]) if len(mrz_lines) > 1 else None
 
     confs = [c for c in [line1_conf, line2_conf] if c is not None]
-    overall = round(sum(confs) / len(confs), 4) if confs else None
+    overall = round(min(confs), 4) if confs else None
 
     return {"overall": overall, "mrz_line1": line1_conf, "mrz_line2": line2_conf}
 
@@ -342,6 +353,33 @@ def parse_mrz(text: str) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
+# Image preprocessing
+# ---------------------------------------------------------------------------
+
+def _preprocess_for_mrz(image_bytes: bytes) -> bytes:
+    """
+    Crop to the MRZ strip (bottom 20 % of the image), convert to greyscale,
+    double the resolution, auto-enhance contrast, and sharpen.
+
+    The resulting PNG is consistently easier for Vision to read: less background
+    noise, larger characters, and higher contrast between the OCR-B text and the
+    passport background.
+    """
+    img = Image.open(io.BytesIO(image_bytes)).convert("L")  # greyscale
+    h = img.height
+    mrz_crop = img.crop((0, int(h * 0.80), img.width, h))  # bottom 20 %
+    mrz_crop = ImageOps.autocontrast(mrz_crop)
+    mrz_crop = mrz_crop.resize(
+        (mrz_crop.width * 2, mrz_crop.height * 2),
+        Image.LANCZOS,
+    )
+    mrz_crop = mrz_crop.filter(ImageFilter.SHARPEN)
+    buf = io.BytesIO()
+    mrz_crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
 # High-level API (used by Flask endpoints)
 # ---------------------------------------------------------------------------
 
@@ -356,8 +394,34 @@ def analyze_passport_image(image_bytes: bytes) -> tuple[dict | None, str, dict]:
         raw_text      — full OCR text from Vision
         confidence    — dict with keys: overall, mrz_line1, mrz_line2
 
+    Strategy:
+        Pass 1 — send a preprocessed crop of the MRZ zone (bottom 20 %,
+                  greyscale, 2× upscale, sharpened). Cropping removes the
+                  photo and decorative background that confuse Vision, and
+                  upscaling makes OCR-B characters easier to read.
+        Pass 2 — if Pass 1 finds no MRZ (or preprocessing fails), fall back
+                  to the full image so we never silently lose data.
+
     Raises:  GoogleOCRError (or a subclass) on API failure.
     """
+    # Pass 1: preprocessed MRZ zone
+    # language_hints=["und"] disables language-specific character priors so
+    # Vision does not bias OCR-B glyphs toward any natural-language alphabet.
+    _mrz_context = vision.ImageContext(language_hints=["und"])
+    try:
+        preprocessed = _preprocess_for_mrz(image_bytes)
+        response = _call_vision_api(preprocessed, image_context=_mrz_context)
+        full_text = response.full_text_annotation.text if response.full_text_annotation else ""
+        passport_data = parse_mrz(full_text)
+        if passport_data:
+            confidence = _extract_mrz_confidence(response, full_text)
+            return passport_data, full_text, confidence
+    except GoogleOCRError:
+        raise  # quota / auth / service errors must not be swallowed
+    except Exception:
+        pass   # PIL failure or unexpected error → fall through
+
+    # Pass 2: full image fallback
     response = _call_vision_api(image_bytes)
     full_text = response.full_text_annotation.text if response.full_text_annotation else ""
     passport_data = parse_mrz(full_text)

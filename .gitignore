@@ -10,5 +10,5 @@
 # Google Cloud service account credentials
 ocr-service/credentials.json
 
-# pytesseract tutorial
-pytesseract-tutorial
+# Sample passports
+sample-passport/

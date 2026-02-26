@@ -12,3 +12,7 @@ ocr-service/credentials.json
 
 # Sample passports
 sample-passport/
+
+# Python bytecode
+**/__pycache__/
+**/*.pyc

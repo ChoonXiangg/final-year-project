@@ -1,1 +1,18 @@
-.DS_Store
+# Visual Studio Code settings
+.vscode/
+
+# Claude code settings
+.claude/
+
+# Environment files
+*/.env
+
+# Google Cloud service account credentials
+ocr-service/credentials.json
+
+# Sample passports
+sample-passport/
+
+# Python bytecode
+**/__pycache__/
+**/*.pyc

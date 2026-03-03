@@ -1,0 +1,20 @@
+# Never include credentials in the image - mount at runtime via GOOGLE_APPLICATION_CREDENTIALS
+credentials.json
+
+# Environment files
+.env
+.env.example
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Tests and coverage - not needed in production image
+test_app.py
+pytest.ini
+.pytest_cache/
+.coverage
+
+# Docs
+README.md

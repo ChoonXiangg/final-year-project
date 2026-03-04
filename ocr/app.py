@@ -14,6 +14,9 @@ CORS(app)
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./credentials.json")
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
 
+# In-memory store for the most recently scanned passport (ZK-proof subset of fields).
+_latest_passport: dict | None = None
+
 
 def _google_configured() -> tuple[bool, str]:
     """Validate credentials file structure. Returns (is_valid, message)."""
@@ -122,11 +125,44 @@ def ocr_passport():
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
+    global _latest_passport
     try:
         passport_data, full_text, confidence = google_ocr.analyze_passport_image(image_bytes)
+        if passport_data:
+            _latest_passport = {
+                "documentNumber": passport_data["documentNumber"],
+                "birthYear":      passport_data["birthYear"],
+                "birthMonth":     passport_data["birthMonth"],
+                "birthDay":       passport_data["birthDay"],
+                "expiryYear":     passport_data["expiryYear"],
+                "expiryMonth":    passport_data["expiryMonth"],
+                "expiryDay":      passport_data["expiryDay"],
+                "nationality":    passport_data["nationality"],
+                "givenNames":     passport_data["givenNames"],
+                "surname":        passport_data["surname"],
+            }
         return jsonify({"success": True, "text": full_text, "data": passport_data, "confidence": confidence})
     except google_ocr.GoogleOCRError as exc:
         return jsonify({"success": False, "error": str(exc)}), exc.http_status
+
+
+@app.route("/passport", methods=["GET"])
+def get_passport():
+    """
+    Return the most recently scanned passport data in the format expected by
+    the ZK proof script.  Pipe this into the evm binary to generate a proof:
+
+        curl -s http://localhost:5000/passport | cargo run --bin evm
+
+    Response (scan available):
+      {"documentNumber": "...", "birthYear": ..., ...}
+
+    Response (no scan yet):
+      404 {"success": false, "error": "No passport scanned yet."}
+    """
+    if _latest_passport is None:
+        return jsonify({"success": False, "error": "No passport scanned yet."}), 404
+    return jsonify(_latest_passport)
 
 
 # ---------------------------------------------------------------------------

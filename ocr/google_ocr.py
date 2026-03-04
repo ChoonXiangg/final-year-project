@@ -166,19 +166,35 @@ def _find_mrz_lines(text: str) -> tuple[str, str] | None:
     return None
 
 
-def _calculate_age(yymmdd: str) -> int | None:
-    """Return age in years from a YYMMDD date string, or None on parse failure."""
+def _yymmdd_to_parts(yymmdd: str) -> tuple[int, int, int] | None:
+    """
+    Parse a YYMMDD string into (full_year, month, day).
+
+    Century heuristic: 2-digit years <= the current 2-digit year are in the
+    2000s; those greater belong to the 1900s.  Returns None on parse failure.
+    """
     try:
         yy = int(yymmdd[0:2])
         mm = int(yymmdd[2:4])
         dd = int(yymmdd[4:6])
-        # Century heuristic: years > current 2-digit year belong to the 1900s
         current_yy = date.today().year % 100
         year = 2000 + yy if yy <= current_yy else 1900 + yy
+        return year, mm, dd
+    except (ValueError, IndexError):
+        return None
+
+
+def _calculate_age(yymmdd: str) -> int | None:
+    """Return age in years from a YYMMDD date string, or None on parse failure."""
+    parts = _yymmdd_to_parts(yymmdd)
+    if parts is None:
+        return None
+    year, mm, dd = parts
+    try:
         dob = date(year, mm, dd)
         today = date.today()
         return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-    except (ValueError, IndexError):
+    except ValueError:
         return None
 
 
@@ -241,6 +257,9 @@ def parse_mrz(text: str) -> dict | None:
     date_of_expiry = line2[21:27]
     personal_number = line2[28:42].replace("<", "")
 
+    dob_parts = _yymmdd_to_parts(date_of_birth)
+    exp_parts = _yymmdd_to_parts(date_of_expiry)
+
     return {
         "surname": surname,
         "givenNames": given_names,
@@ -248,7 +267,13 @@ def parse_mrz(text: str) -> dict | None:
         "nationality": nationality,
         "documentNumber": document_number,
         "dateOfBirth": date_of_birth,
+        "birthYear": dob_parts[0] if dob_parts else None,
+        "birthMonth": dob_parts[1] if dob_parts else None,
+        "birthDay": dob_parts[2] if dob_parts else None,
         "dateOfExpiry": date_of_expiry,
+        "expiryYear": exp_parts[0] if exp_parts else None,
+        "expiryMonth": exp_parts[1] if exp_parts else None,
+        "expiryDay": exp_parts[2] if exp_parts else None,
         "sex": sex,
         "age": _calculate_age(date_of_birth),
         "issuingCountry": issuing_country,

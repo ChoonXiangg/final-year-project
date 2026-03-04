@@ -12,8 +12,14 @@ export interface PassportData {
   documentNumber: string;
   /** Date of birth in YYMMDD format */
   dateOfBirth: string;
+  birthYear: number | null;
+  birthMonth: number | null;
+  birthDay: number | null;
   /** Date of expiry in YYMMDD format */
   dateOfExpiry: string;
+  expiryYear: number | null;
+  expiryMonth: number | null;
+  expiryDay: number | null;
   sex: 'M' | 'F' | 'unspecified';
   age: number | null;
   issuingCountry: string;

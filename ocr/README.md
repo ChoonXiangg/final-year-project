@@ -5,7 +5,7 @@ Python Flask microservice that extracts structured passport data from images usi
 ## Architecture
 
 ```
-passport-app (React Native)
+app (React Native)
         │  HTTP POST /ocr/passport
         ▼
 app.py (Flask)
@@ -41,7 +41,7 @@ Google Cloud Vision API
 3. Go to **IAM & Admin → Service Accounts** → Create a service account.
 4. Assign the role **Cloud Vision API User**.
 5. Under the service account, go to **Keys → Add Key → Create new key → JSON**.
-6. Save the downloaded file as `ocr-service/credentials.json`.
+6. Save the downloaded file as `ocr/credentials.json`.
 
 ### 2. Configure environment variables
 

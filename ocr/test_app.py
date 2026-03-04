@@ -3,7 +3,7 @@ Integration tests for the OCR Flask service (app.py) and unit tests for the
 pure functions in google_ocr.py.
 
 Google Vision API calls are mocked so no live credentials or network access
-are required.  Run from the ocr-service/ directory with:
+are required.  Run from the ocr/ directory with:
 
     pytest test_app.py -v
 """

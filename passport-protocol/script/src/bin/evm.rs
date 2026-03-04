@@ -39,15 +39,13 @@ fn main() {
     print_banner();
     print_step("Initializing SP1 Prover (EVM Mode)...");
 
-    // Read Input Files
-    // Files are located in the root of the project, while this script runs from script/
-    let passport_path = "../mock_passport.json";
-    let reqs_path = "../verification_requirements.json";
-    
-    let passport_file = std::fs::File::open(passport_path).unwrap_or_else(|_| panic!("Failed to open {}", passport_path));
-    let reqs_file = std::fs::File::open(reqs_path).unwrap_or_else(|_| panic!("Failed to open {}", reqs_path));
+    // Passport data is read from stdin (piped from the OCR service):
+    //   curl -s http://localhost:5000/passport | cargo run --bin evm
+    let mock_passport: MockPassport = serde_json::from_reader(std::io::stdin())
+        .expect("Failed to parse passport JSON from stdin");
 
-    let mock_passport: MockPassport = serde_json::from_reader(passport_file).expect("Failed to parse mock_passport.json");
+    let reqs_path = "../verification_requirements.json";
+    let reqs_file = std::fs::File::open(reqs_path).unwrap_or_else(|_| panic!("Failed to open {}", reqs_path));
     let reqs: VerificationRequirements = serde_json::from_reader(reqs_file).expect("Failed to parse verification_requirements.json");
 
     print_info("Document", &mock_passport.document_number);

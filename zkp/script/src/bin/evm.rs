@@ -8,8 +8,8 @@ use serde::Deserialize;
 const PASSPORT_ELF: &[u8] = include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/passport-verifier-program");
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")] 
-struct MockPassport {
+#[serde(rename_all = "camelCase")]
+struct PassportInput {
     document_number: String,
     birth_year: u16,
     birth_month: u8,
@@ -20,14 +20,17 @@ struct MockPassport {
     nationality: String,
     given_names: String,
     surname: String,
+    sex: String,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct VerificationRequirements {
     wallet_address: String,
+    verifier_address: String,
     required_age: u16,
     required_nationality: String,
+    required_sex: String,
 }
 
 fn main() {
@@ -41,7 +44,7 @@ fn main() {
 
     // Passport data is read from stdin (piped from the OCR service):
     //   curl -s http://localhost:5000/passport | cargo run --bin evm
-    let mock_passport: MockPassport = serde_json::from_reader(std::io::stdin())
+    let mock_passport: PassportInput = serde_json::from_reader(std::io::stdin())
         .expect("Failed to parse passport JSON from stdin");
 
     let reqs_path = "../verification_requirements.json";
@@ -67,11 +70,16 @@ fn main() {
         nationality: mock_passport.nationality,
         given_names: mock_passport.given_names,
         surname: mock_passport.surname,
+        sex: mock_passport.sex,
     };
 
     let wallet_bytes = hex::decode(reqs.wallet_address.trim_start_matches("0x")).expect("Invalid wallet address");
     let mut wallet_array = [0u8; 20];
     wallet_array.copy_from_slice(&wallet_bytes);
+
+    let verifier_bytes = hex::decode(reqs.verifier_address.trim_start_matches("0x")).expect("Invalid verifier address");
+    let mut verifier_array = [0u8; 20];
+    verifier_array.copy_from_slice(&verifier_bytes);
     
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
@@ -82,9 +90,11 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&passport);
     stdin.write(&wallet_array);
+    stdin.write(&verifier_array);
     stdin.write(&now);
     stdin.write(&reqs.required_age);
     stdin.write(&reqs.required_nationality);
+    stdin.write(&reqs.required_sex);
 
     print_step("Generating EVM Proof (Groth16)...");
     let start = Instant::now();

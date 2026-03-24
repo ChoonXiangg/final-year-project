@@ -10,29 +10,37 @@ pub fn main() {
     // Read inputs
     let passport = sp1_zkvm::io::read::<PassportAttributes>();
     let wallet_address = sp1_zkvm::io::read::<[u8; 20]>();
+    let verifier_address = sp1_zkvm::io::read::<[u8; 20]>();
     let current_timestamp = sp1_zkvm::io::read::<u64>();
     let min_age = sp1_zkvm::io::read::<u16>();
     let target_nationality = sp1_zkvm::io::read::<String>();
+    let target_sex = sp1_zkvm::io::read::<String>();
 
     // 1. Verify Age
     let current_date = timestamp_to_date(current_timestamp);
     let age = calculate_age(&passport.date_of_birth, &current_date);
     let is_over_min_age = age >= min_age;
 
-    // 3. Verify Nationality
+    // 2. Verify Nationality
     let is_nationality_match = passport.nationality == target_nationality;
+
+    // 3. Verify Sex
+    let is_sex_match = passport.sex == target_sex;
 
     // 4. Create Identity Commitment
     let identity_commitment = derive_identity_commitment(&passport);
 
     // Prepare and commit public output
     let output = PassportVerificationOutput {
-        is_over_min_age,
-        is_nationality_match,
         identity_commitment: identity_commitment.into(),
         wallet_address: wallet_address.into(),
+        verifier_address: verifier_address.into(),
+        is_over_min_age,
         min_age: U256::from(min_age),
+        is_nationality_match,
         target_nationality,
+        is_sex_match,
+        target_sex,
         current_timestamp: U256::from(current_timestamp),
     };
 

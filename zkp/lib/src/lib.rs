@@ -20,19 +20,22 @@ pub struct PassportAttributes {
     pub nationality: String,
     pub given_names: String,
     pub surname: String,
+    pub sex: String,
 }
 
 // SOLIDITY-COMPATIBLE OUTPUT STRUCTS
 
 sol! {
-    // Output for the combined passport verification proof
     struct PassportVerificationOutput {
-        bool is_over_min_age;
-        bool is_nationality_match;
         bytes32 identity_commitment;
         address wallet_address;
+        address verifier_address;
+        bool is_over_min_age;
         uint256 min_age;
+        bool is_nationality_match;
         string target_nationality;
+        bool is_sex_match;
+        string target_sex;
         uint256 current_timestamp;
     }
 }

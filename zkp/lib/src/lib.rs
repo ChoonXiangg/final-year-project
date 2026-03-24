@@ -1,14 +1,6 @@
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
 
-// PROOF TYPE
-
-// Type of proof to generate
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ProofType {
-    ProofOfPassport,
-}
-
 // DATA STRUCTURES
 
 // Represents a date (year, month, day)
@@ -28,9 +20,6 @@ pub struct PassportAttributes {
     pub nationality: String,
     pub given_names: String,
     pub surname: String,
-    // Signature fields for verification
-    pub signature: Vec<u8>, // RSA/ECDSA signature of the SOD/DG15
-    pub signed_attributes: Vec<u8>, // The data that was signed
 }
 
 // SOLIDITY-COMPATIBLE OUTPUT STRUCTS
@@ -38,7 +27,6 @@ pub struct PassportAttributes {
 sol! {
     // Output for the combined passport verification proof
     struct PassportVerificationOutput {
-        bool is_valid_signature;
         bool is_over_min_age;
         bool is_nationality_match;
         bytes32 identity_commitment;
@@ -61,30 +49,23 @@ pub fn calculate_age(birth: &Date, current: &Date) -> u16 {
     age
 }
 
-// Create a deterministic commitment from passport attributes
-// This is used to link multiple proofs to the same identity without revealing it
+// Create a deterministic commitment from passport attributes.
+// Uses name + nationality + date of birth so the commitment survives passport renewal.
 pub fn derive_identity_commitment(passport: &PassportAttributes) -> [u8; 32] {
     use sha2::{Sha256, Digest};
-    
+
     let mut hasher = Sha256::new();
-    hasher.update(passport.document_number.as_bytes());
+    hasher.update(passport.given_names.as_bytes());
+    hasher.update(passport.surname.as_bytes());
+    hasher.update(passport.nationality.as_bytes());
     hasher.update(&passport.date_of_birth.year.to_le_bytes());
     hasher.update(&[passport.date_of_birth.month]);
     hasher.update(&[passport.date_of_birth.day]);
-    hasher.update(passport.nationality.as_bytes());
-    // We do NOT include the signature in the commitment because we want it to be deterministic
-    // based on the identity data, not the specific cryptographic proof.
-    
+
     let result = hasher.finalize();
     let mut commitment = [0u8; 32];
     commitment.copy_from_slice(&result);
     commitment
-}
-
-// Verify passport signature (Placeholder)
-pub fn verify_passport_signature(passport: &PassportAttributes) -> bool {
-    // TODO: Implement actual signature verification
-    !passport.signature.is_empty()
 }
 
 // Helper to convert timestamp to Date

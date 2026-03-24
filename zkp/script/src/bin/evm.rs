@@ -1,4 +1,4 @@
-use passport_verifier_lib::{Date, PassportAttributes, ProofType};
+use passport_verifier_lib::{Date, PassportAttributes};
 use sp1_sdk::{ProverClient, SP1Stdin, HashableKey};
 use std::time::Instant;
 use passport_verifier_script::utils::*;
@@ -67,8 +67,6 @@ fn main() {
         nationality: mock_passport.nationality,
         given_names: mock_passport.given_names,
         surname: mock_passport.surname,
-        signature: vec![0xde, 0xad, 0xbe, 0xef], // Mock signature
-        signed_attributes: vec![],
     };
 
     let wallet_bytes = hex::decode(reqs.wallet_address.trim_start_matches("0x")).expect("Invalid wallet address");
@@ -82,7 +80,6 @@ fn main() {
     print_success("Prover initialized");
 
     let mut stdin = SP1Stdin::new();
-    stdin.write(&ProofType::ProofOfPassport);
     stdin.write(&passport);
     stdin.write(&wallet_array);
     stdin.write(&now);

@@ -37,7 +37,6 @@ contract PassportVerifier {
     );
 
     error InvalidProof();
-    error InvalidSignature();
     error IdentityAlreadyVerified();
     error WalletMismatch();
     error ParameterMismatch();
@@ -76,7 +75,6 @@ contract PassportVerifier {
             }
 
             (
-                bool isValidSig,
                 bool isOverMinAge,
                 bool isNationalityMatch,
                 bytes32 identityCommitment,
@@ -84,11 +82,9 @@ contract PassportVerifier {
                 uint256 minAge,
                 string memory targetNationality,
                 uint256 timestamp
-            ) = abi.decode(dataToDecode, (bool, bool, bool, bytes32, address, uint256, string, uint256));
+            ) = abi.decode(dataToDecode, (bool, bool, bytes32, address, uint256, string, uint256));
 
             // 3. Logic Checks
-            if (!isValidSig) revert InvalidSignature();
-
             // Replay Protection: Proof must be recent (within 30 days)
             // This prevents using an old proof after the passport might have expired or been revoked
             if (timestamp > block.timestamp || block.timestamp - timestamp > 30 days) {

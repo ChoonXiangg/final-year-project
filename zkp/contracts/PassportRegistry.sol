@@ -19,8 +19,17 @@ contract PassportRegistry {
     error AlreadyRegistered();
     error WalletMismatch();
 
+    address public factory;
+
+    error NotOwnerOrFactory();
+
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    modifier onlyOwnerOrFactory() {
+        if (msg.sender != owner && msg.sender != factory) revert NotOwnerOrFactory();
         _;
     }
 
@@ -28,7 +37,11 @@ contract PassportRegistry {
         owner = msg.sender;
     }
 
-    function addVerifier(address verifier) external onlyOwner {
+    function setFactory(address _factory) external onlyOwner {
+        factory = _factory;
+    }
+
+    function addVerifier(address verifier) external onlyOwnerOrFactory {
         authorizedVerifiers[verifier] = true;
     }
 

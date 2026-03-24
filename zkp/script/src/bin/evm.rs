@@ -9,7 +9,7 @@ const PASSPORT_ELF: &[u8] = include_bytes!("../../../target/elf-compilation/risc
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")] 
-struct MockPassport {
+struct PassportInput {
     document_number: String,
     birth_year: u16,
     birth_month: u8,
@@ -20,6 +20,7 @@ struct MockPassport {
     nationality: String,
     given_names: String,
     surname: String,
+    sex: String,
 }
 
 #[derive(Deserialize)]
@@ -41,32 +42,33 @@ fn main() {
 
     // Passport data is read from stdin (piped from the OCR service):
     //   curl -s http://localhost:5000/passport | cargo run --bin evm
-    let mock_passport: MockPassport = serde_json::from_reader(std::io::stdin())
+    let passport_input: PassportInput = serde_json::from_reader(std::io::stdin())
         .expect("Failed to parse passport JSON from stdin");
 
     let reqs_path = "../verification_requirements.json";
     let reqs_file = std::fs::File::open(reqs_path).unwrap_or_else(|_| panic!("Failed to open {}", reqs_path));
     let reqs: VerificationRequirements = serde_json::from_reader(reqs_file).expect("Failed to parse verification_requirements.json");
 
-    print_info("Document", &mock_passport.document_number);
+    print_info("Document", &passport_input.document_number);
     print_info("Binding To", &reqs.wallet_address);
 
     // Setup inputs
     let passport = PassportAttributes {
-        document_number: mock_passport.document_number,
+        document_number: passport_input.document_number,
         date_of_birth: Date {
-            year: mock_passport.birth_year,
-            month: mock_passport.birth_month,
-            day: mock_passport.birth_day,
+            year: passport_input.birth_year,
+            month: passport_input.birth_month,
+            day: passport_input.birth_day,
         },
         date_of_expiry: Date { 
-            year: mock_passport.expiry_year, 
-            month: mock_passport.expiry_month, 
-            day: mock_passport.expiry_day 
+            year: passport_input.expiry_year, 
+            month: passport_input.expiry_month, 
+            day: passport_input.expiry_day 
         }, 
-        nationality: mock_passport.nationality,
-        given_names: mock_passport.given_names,
-        surname: mock_passport.surname,
+        nationality: passport_input.nationality,
+        given_names: passport_input.given_names,
+        surname: passport_input.surname,
+        sex: passport_input.sex,
     };
 
     let wallet_bytes = hex::decode(reqs.wallet_address.trim_start_matches("0x")).expect("Invalid wallet address");

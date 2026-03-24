@@ -20,6 +20,7 @@ pub struct PassportAttributes {
     pub nationality: String,
     pub given_names: String,
     pub surname: String,
+    pub sex: String,
 }
 
 // SOLIDITY-COMPATIBLE OUTPUT STRUCTS

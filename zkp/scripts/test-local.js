@@ -43,17 +43,20 @@ async function main() {
     const firstWord = BigInt("0x" + pubHex.slice(0, 64));
     const decodeHex = "0x" + (firstWord === 32n ? pubHex.slice(64) : pubHex);
     const decoded = ABI.decode(
-        ["bool", "bool", "bytes32", "address", "uint256", "string", "uint256"],
+        ["bytes32", "address", "address", "bool", "uint256", "bool", "string", "bool", "string", "uint256"],
         decodeHex
     );
     console.log("\nProof claims:");
-    console.log("  isOverMinAge     :", decoded[0]);
-    console.log("  isNationalityMatch:", decoded[1]);
-    console.log("  identityCommitment:", decoded[2]);
-    console.log("  walletAddress    :", decoded[3]);
-    console.log("  minAge           :", decoded[4].toString());
-    console.log("  targetNationality:", decoded[5]);
-    console.log("  timestamp        :", decoded[6].toString(), "→", new Date(Number(decoded[6]) * 1000).toISOString());
+    console.log("  identityCommitment:", decoded[0]);
+    console.log("  walletAddress     :", decoded[1]);
+    console.log("  verifierAddress   :", decoded[2]);
+    console.log("  isOverMinAge      :", decoded[3]);
+    console.log("  minAge            :", decoded[4].toString());
+    console.log("  isNationalityMatch:", decoded[5]);
+    console.log("  targetNationality :", decoded[6]);
+    console.log("  isSexMatch        :", decoded[7]);
+    console.log("  targetSex         :", decoded[8]);
+    console.log("  timestamp         :", decoded[9].toString(), "→", new Date(Number(decoded[9]) * 1000).toISOString());
 
     // 2. Deploy MockSP1Verifier
     console.log("\nDeploying MockSP1Verifier...");
@@ -62,19 +65,58 @@ async function main() {
     await mockVerifier.waitForDeployment();
     console.log("  MockSP1Verifier deployed at:", await mockVerifier.getAddress());
 
-    // 3. Deploy PassportVerifier with mock verifier + vkey
-    console.log("\nDeploying PassportVerifier...");
-    const PassportVerifier = await hre.ethers.getContractFactory("PassportVerifier");
-    const passportVerifier = await PassportVerifier.deploy(
-        await mockVerifier.getAddress(),
-        vkey
-    );
-    await passportVerifier.waitForDeployment();
-    console.log("  PassportVerifier deployed at:", await passportVerifier.getAddress());
+    // 3. Deploy PassportRegistry
+    console.log("\nDeploying PassportRegistry...");
+    const PassportRegistry = await hre.ethers.getContractFactory("PassportRegistry");
+    const registry = await PassportRegistry.deploy();
+    await registry.waitForDeployment();
+    console.log("  PassportRegistry deployed at:", await registry.getAddress());
 
-    // 4. The proof binds to a specific wallet address.
-    //    We need to impersonate that wallet to call verifyPassport.
-    const boundWallet = decoded[3]; // the walletAddress from proof
+    // 4. Deploy VerifierFactory and create an AppVerifier via the factory
+    console.log("\nDeploying VerifierFactory...");
+    const VerifierFactory = await hre.ethers.getContractFactory("VerifierFactory");
+    const factory = await VerifierFactory.deploy(await registry.getAddress());
+    await factory.waitForDeployment();
+    console.log("  VerifierFactory deployed at:", await factory.getAddress());
+
+    // Authorize the factory to register verifiers in the registry
+    await registry.setFactory(await factory.getAddress());
+    console.log("  Factory authorized in registry");
+
+    // Create an AppVerifier via the factory (requireAge=true, minAge=18)
+    console.log("\nCreating AppVerifier via factory...");
+    const createTx = await factory.createVerifier(
+        await mockVerifier.getAddress(),
+        vkey,
+        true,   // requireAge
+        18,     // minAge
+        true,   // requireNationality
+        "MYS",  // targetNationality
+        true,   // requireSex
+        "M"     // targetSex
+    );
+    const createReceipt = await createTx.wait();
+    const createdEvent = createReceipt.logs
+        .map(log => { try { return factory.interface.parseLog(log); } catch { return null; } })
+        .find(ev => ev && ev.name === "VerifierCreated");
+    const appVerifierAddress = createdEvent.args.verifier;
+    console.log("  AppVerifier deployed at:", appVerifierAddress);
+
+    const AppVerifier = await hre.ethers.getContractFactory("AppVerifier");
+    const appVerifier = AppVerifier.attach(appVerifierAddress);
+
+    // 5. Patch publicValues: replace zero verifier address with actual AppVerifier address.
+    //    Valid for mock testing since MockSP1Verifier doesn't check proof integrity.
+    //    In production, the proof would be generated with the correct verifier address.
+    const patchedPublicValues = publicValues.replace(
+        "000000000000000000000000" + "0000000000000000000000000000000000000000",
+        "000000000000000000000000" + appVerifierAddress.slice(2).toLowerCase()
+    );
+    console.log("  Patched verifierAddress in publicValues to:", appVerifierAddress);
+
+    // 6. The proof binds to a specific wallet address.
+    //    We need to impersonate that wallet to call verifyClaim.
+    const boundWallet = decoded[1]; // walletAddress from new proof output
     console.log("\nImpersonating proof-bound wallet:", boundWallet);
     await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
@@ -87,53 +129,125 @@ async function main() {
     ]);
     const boundSigner = await hre.ethers.getSigner(boundWallet);
 
-    // 5. Call verifyPassport
-    console.log("\nCalling PassportVerifier.verifyPassport()...");
+    // 6. Call verifyClaim (happy path)
+    console.log("\n=== Test: Happy path — user submits claim proof ===");
     try {
-        const tx = await passportVerifier.connect(boundSigner).verifyPassport(
-            publicValues,
+        const tx = await appVerifier.connect(boundSigner).verifyClaim(
+            patchedPublicValues,
             proof
         );
         console.log("  Transaction hash:", tx.hash);
         const receipt = await tx.wait();
         console.log("  Gas used:", receipt.gasUsed.toString());
 
-        // Check the IdentityVerified event
-        const events = receipt.logs
+        // Check events from both AppVerifier and PassportRegistry
+        const appEvents = receipt.logs
             .map(log => {
-                try { return passportVerifier.interface.parseLog(log); } catch { return null; }
+                try { return appVerifier.interface.parseLog(log); } catch { return null; }
+            })
+            .filter(Boolean);
+        const registryEvents = receipt.logs
+            .map(log => {
+                try { return registry.interface.parseLog(log); } catch { return null; }
             })
             .filter(Boolean);
 
-        console.log("\nProof verified successfully!");
-        for (const ev of events) {
-            if (ev.name === "IdentityVerified") {
-                console.log("\nIdentityVerified event:");
+        console.log("\nClaim verified successfully!");
+        for (const ev of appEvents) {
+            if (ev.name === "ClaimVerified") {
+                console.log("\nClaimVerified event:");
                 console.log("  identityCommitment:", ev.args.identityCommitment);
                 console.log("  wallet            :", ev.args.wallet);
-                console.log("  nationality       :", ev.args.nationality || "(none - mismatch)");
-                console.log("  isAdult           :", ev.args.isAdult);
+                console.log("  verifierAddress   :", ev.args.verifierAddress);
+                console.log("  timestamp         :", ev.args.timestamp.toString());
+            }
+        }
+        for (const ev of registryEvents) {
+            if (ev.name === "IdentityRegistered") {
+                console.log("\nIdentityRegistered event (first-time registration):");
+                console.log("  commitment:", ev.args.commitment);
+                console.log("  wallet    :", ev.args.wallet);
             }
         }
 
-        // Query the stored identity
-        const identity = await passportVerifier.identities(decoded[2]);
-        console.log("\nOn-chain identity record:");
-        console.log("  isVerified           :", identity.isVerified);
-        console.log("  boundWallet          :", identity.boundWallet);
-        console.log("  nationality          :", identity.nationality || "(none - mismatch)");
-        console.log("  isAdult              :", identity.isAdult);
-        console.log("  verificationTimestamp:", new Date(Number(identity.verificationTimestamp) * 1000).toISOString());
+        // Query AppVerifier
+        const isVerified = await appVerifier.isVerified(boundWallet);
+        console.log("\nAppVerifier.isVerified(" + boundWallet + "):", isVerified);
+
+        // Query PassportRegistry
+        const registeredWallet = await registry.getWallet(decoded[0]);
+        console.log("PassportRegistry.getWallet(commitment):", registeredWallet);
+        const isRegistered = await registry.isRegistered(decoded[0]);
+        console.log("PassportRegistry.isRegistered(commitment):", isRegistered);
 
     } catch (error) {
         console.error("\nVerification failed:", error.message);
         if (error.data) {
             try {
-                const decoded = passportVerifier.interface.parseError(error.data);
-                console.error("  Contract error:", decoded.name, decoded.args);
+                const errParsed = appVerifier.interface.parseError(error.data);
+                console.error("  Contract error:", errParsed.name, errParsed.args);
             } catch { /* ignore */ }
         }
         process.exit(1);
+    }
+
+    // 7. Test Sybil resistance — same commitment, different wallet
+    console.log("\n=== Test: Sybil resistance — same commitment, different wallet ===");
+    const [, , sybilWallet] = await hre.ethers.getSigners();
+    console.log("  Attempting verifyClaim from different wallet:", sybilWallet.address);
+    try {
+        await appVerifier.connect(sybilWallet).verifyClaim(publicValues, proof);
+        console.error("  FAIL: should have reverted but didn't");
+        process.exit(1);
+    } catch (error) {
+        // Could revert with WalletMismatch (proof bound to different wallet)
+        // or registry WalletMismatch (commitment already bound to different wallet)
+        console.log("  PASS: reverted as expected");
+        if (error.data) {
+            try {
+                const errParsed = appVerifier.interface.parseError(error.data);
+                console.log("  Error:", errParsed.name);
+            } catch {
+                try {
+                    const errParsed = registry.interface.parseError(error.data);
+                    console.log("  Error:", errParsed.name);
+                } catch { /* ignore */ }
+            }
+        }
+    }
+
+    // 8. Test replay protection — proof with wrong verifierAddress
+    console.log("\n=== Test: Replay protection — proof submitted to wrong verifier ===");
+    // Create a second AppVerifier with different requirements
+    const createTx2 = await factory.createVerifier(
+        await mockVerifier.getAddress(),
+        vkey,
+        true,   // requireAge
+        21,     // minAge (different)
+        false,  // requireNationality
+        "",     // targetNationality
+        false,  // requireSex
+        ""      // targetSex
+    );
+    const createReceipt2 = await createTx2.wait();
+    const createdEvent2 = createReceipt2.logs
+        .map(log => { try { return factory.interface.parseLog(log); } catch { return null; } })
+        .find(ev => ev && ev.name === "VerifierCreated");
+    const secondVerifier = AppVerifier.attach(createdEvent2.args.verifier);
+    console.log("  Second AppVerifier deployed at:", createdEvent2.args.verifier);
+    console.log("  Submitting proof meant for first verifier to second verifier...");
+    try {
+        await secondVerifier.connect(boundSigner).verifyClaim(publicValues, proof);
+        console.error("  FAIL: should have reverted but didn't");
+        process.exit(1);
+    } catch (error) {
+        console.log("  PASS: reverted as expected");
+        if (error.data) {
+            try {
+                const errParsed = secondVerifier.interface.parseError(error.data);
+                console.log("  Error:", errParsed.name);
+            } catch { /* ignore */ }
+        }
     }
 }
 

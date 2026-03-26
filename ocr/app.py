@@ -1,4 +1,6 @@
 import os
+import json
+import subprocess
 import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -163,6 +165,108 @@ def get_passport():
     if _latest_passport is None:
         return jsonify({"success": False, "error": "No passport scanned yet."}), 404
     return jsonify(_latest_passport)
+
+
+ZKP_DIR = os.path.join(os.path.dirname(__file__), "..", "zkp")
+CARGO_BIN = os.path.expanduser("~/.cargo/bin/cargo")
+
+
+@app.route("/generate-proof", methods=["POST"])
+def generate_proof():
+    """
+    Generate a ZK proof from passport data and verification requirements.
+
+    Request JSON:
+      {
+        "passport": { passport data from OCR },
+        "walletAddress": "0x...",
+        "verifierAddress": "0x...",
+        "requiredAge": 18,
+        "requiredNationality": "MYS",
+        "requiredSex": "M"
+      }
+
+    Response:
+      { "proof": "0x...", "publicValues": "0x...", "vkey": "0x..." }
+    """
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({"error": "JSON body required"}), 400
+
+    passport = body.get("passport")
+    wallet_address = body.get("walletAddress")
+    verifier_address = body.get("verifierAddress", "0x" + "0" * 40)
+    required_age = body.get("requiredAge", 0)
+    required_nationality = body.get("requiredNationality", "")
+    required_sex = body.get("requiredSex", "")
+
+    if not passport or not wallet_address:
+        return jsonify({"error": "passport and walletAddress are required"}), 400
+
+    # 1. Write verification_requirements.json
+    reqs = {
+        "walletAddress": wallet_address,
+        "verifierAddress": verifier_address,
+        "requiredAge": required_age,
+        "requiredNationality": required_nationality,
+        "requiredSex": required_sex,
+    }
+    reqs_path = os.path.join(ZKP_DIR, "verification_requirements.json")
+    with open(reqs_path, "w") as f:
+        json.dump(reqs, f, indent=4)
+
+    # 2. Build passport JSON for stdin (matches PassportInput struct in evm.rs)
+    passport_input = {
+        "documentNumber": passport.get("documentNumber", ""),
+        "birthYear": passport.get("birthYear", 0),
+        "birthMonth": passport.get("birthMonth", 0),
+        "birthDay": passport.get("birthDay", 0),
+        "expiryYear": passport.get("expiryYear", 0),
+        "expiryMonth": passport.get("expiryMonth", 0),
+        "expiryDay": passport.get("expiryDay", 0),
+        "nationality": passport.get("nationality", ""),
+        "givenNames": passport.get("givenNames", ""),
+        "surname": passport.get("surname", ""),
+        "sex": passport.get("sex", ""),
+    }
+
+    # 3. Run cargo run --bin evm with passport JSON piped to stdin
+    script_dir = os.path.join(ZKP_DIR, "script")
+    env = os.environ.copy()
+    env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
+
+    try:
+        result = subprocess.run(
+            [CARGO_BIN, "run", "--release", "--bin", "evm"],
+            input=json.dumps(passport_input),
+            capture_output=True,
+            text=True,
+            cwd=script_dir,
+            env=env,
+            timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Proof generation timed out"}), 504
+
+    if result.returncode != 0:
+        return jsonify({
+            "error": "Proof generation failed",
+            "stderr": result.stderr[-500:] if result.stderr else "",
+        }), 500
+
+    # 4. Read generated proof
+    proof_path = os.path.join(ZKP_DIR, "proofs", "passport_proof_evm.json")
+    if not os.path.exists(proof_path):
+        return jsonify({"error": "Proof file not generated"}), 500
+
+    with open(proof_path) as f:
+        proof_data = json.load(f)
+
+    return jsonify({
+        "proof": proof_data.get("proof", ""),
+        "publicValues": proof_data.get("publicValues", ""),
+        "vkey": proof_data.get("vkey", ""),
+    })
 
 
 # ---------------------------------------------------------------------------

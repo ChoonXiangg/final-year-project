@@ -31,3 +31,6 @@ sample-passport/
 
 # ZK proof outputs
 **/proofs/
+
+# Node modules
+node_modules/

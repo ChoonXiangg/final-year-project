@@ -1,0 +1,102 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* GlitchText keyframes */
+@keyframes glitch {
+  0%   { clip-path: inset(20% 0 50% 0); }
+  5%   { clip-path: inset(10% 0 60% 0); }
+  10%  { clip-path: inset(15% 0 55% 0); }
+  15%  { clip-path: inset(25% 0 35% 0); }
+  20%  { clip-path: inset(30% 0 40% 0); }
+  25%  { clip-path: inset(40% 0 20% 0); }
+  30%  { clip-path: inset(10% 0 60% 0); }
+  35%  { clip-path: inset(15% 0 55% 0); }
+  40%  { clip-path: inset(25% 0 35% 0); }
+  45%  { clip-path: inset(30% 0 40% 0); }
+  50%  { clip-path: inset(20% 0 50% 0); }
+  55%  { clip-path: inset(10% 0 60% 0); }
+  60%  { clip-path: inset(15% 0 55% 0); }
+  65%  { clip-path: inset(25% 0 35% 0); }
+  70%  { clip-path: inset(30% 0 40% 0); }
+  75%  { clip-path: inset(40% 0 20% 0); }
+  80%  { clip-path: inset(20% 0 50% 0); }
+  85%  { clip-path: inset(10% 0 60% 0); }
+  90%  { clip-path: inset(15% 0 55% 0); }
+  95%  { clip-path: inset(25% 0 35% 0); }
+  100% { clip-path: inset(30% 0 40% 0); }
+}
+
+.glitch-text {
+  color: #fff;
+  font-size: clamp(2rem, 10vw, 8rem);
+  font-weight: 900;
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  user-select: none;
+  cursor: pointer;
+}
+
+.glitch-text::after,
+.glitch-text::before {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  color: #fff;
+  overflow: hidden;
+  clip-path: inset(0 0 0 0);
+}
+
+.glitch-text::after {
+  left: 10px;
+  text-shadow: -5px 0 red;
+  animation: glitch var(--after-duration) infinite linear alternate-reverse;
+}
+
+.glitch-text::before {
+  left: -10px;
+  text-shadow: 5px 0 cyan;
+  animation: glitch var(--before-duration) infinite linear alternate-reverse;
+}
+
+/* GlareHover utility classes */
+.grid { display: grid; }
+.place-items-center { place-items: center; }
+.overflow-hidden { overflow: hidden; }
+.cursor-pointer { cursor: pointer; }
+.border { border-width: 1px; border-style: solid; }
+
+/* ScrollStack utility classes (Tailwind not configured) */
+.relative { position: relative; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.h-80 { height: 20rem; }
+.my-8 { margin-top: 2rem; margin-bottom: 2rem; }
+.p-12 { padding: 3rem; }
+.rounded-\[40px\] { border-radius: 40px; }
+.shadow-\[0_0_30px_rgba\(0\,0\,0\,0\.1\)\] { box-shadow: 0 0 30px rgba(0,0,0,0.1); }
+.box-border { box-sizing: border-box; }
+.origin-top { transform-origin: top; }
+.will-change-transform { will-change: transform; }
+.overflow-y-auto { overflow-y: auto; }
+.overflow-x-visible { overflow-x: visible; }
+.min-h-screen { min-height: 100vh; }
+
+.scroll-stack-inner {
+  padding-top: 20vh;
+  padding-left: 5rem;
+  padding-right: 5rem;
+  padding-bottom: 50rem;
+  min-height: 100vh;
+}

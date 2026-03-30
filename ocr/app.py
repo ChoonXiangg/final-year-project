@@ -1,0 +1,288 @@
+import os
+import json
+import subprocess
+import base64
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+
+import google_ocr
+
+load_dotenv()
+
+app = Flask(__name__)
+CORS(app)
+
+GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./credentials.json")
+GOOGLE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
+
+# In-memory store for the most recently scanned passport (ZK-proof subset of fields).
+_latest_passport: dict | None = None
+
+
+def _google_configured() -> tuple[bool, str]:
+    """Validate credentials file structure. Returns (is_valid, message)."""
+    return google_ocr.validate_credentials(GOOGLE_CREDENTIALS_PATH)
+
+
+def _get_image_bytes(req) -> bytes:
+    """
+    Extract raw image bytes from the request.
+
+    Accepts two formats:
+      - JSON body:          {"image": "<base64-string>"}
+      - Multipart upload:   form field named "image"
+
+    Raises ValueError with a descriptive message on bad input.
+    """
+    if req.is_json:
+        body = req.get_json(silent=True) or {}
+        if "image" not in body:
+            raise ValueError("Missing 'image' field in JSON body.")
+        try:
+            return base64.b64decode(body["image"])
+        except Exception:
+            raise ValueError("Invalid base64 data in 'image' field.")
+
+    if "image" in req.files:
+        return req.files["image"].read()
+
+    raise ValueError(
+        "No image provided. Send JSON {\"image\": \"<base64>\"} "
+        "or a multipart form with an 'image' file field."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+@app.route("/health", methods=["GET"])
+def health():
+    valid, message = _google_configured()
+    return jsonify({
+        "status": "healthy" if valid else "degraded",
+        "google_configured": valid,
+        "credentials_message": message,
+        "credentials_file": GOOGLE_CREDENTIALS_PATH,
+        "project_id": GOOGLE_PROJECT_ID,
+    })
+
+
+@app.route("/ocr", methods=["POST"])
+def ocr():
+    """
+    Extract raw text from an image using Google Cloud Vision.
+
+    Request (one of):
+      JSON:      {"image": "<base64>"}
+      Multipart: form field "image"
+
+    Response:
+      {"success": true,  "text": "...", "lines": ["...", ...]}
+      {"success": false, "error": "..."}
+    """
+    try:
+        image_bytes = _get_image_bytes(request)
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    try:
+        full_text, lines = google_ocr.extract_text_from_image(image_bytes)
+        return jsonify({"success": True, "text": full_text, "lines": lines})
+    except google_ocr.GoogleOCRError as exc:
+        return jsonify({"success": False, "error": str(exc)}), exc.http_status
+
+
+@app.route("/ocr/passport", methods=["POST"])
+def ocr_passport():
+    """
+    Extract structured passport data from an image using Google Cloud Vision.
+
+    Request (one of):
+      JSON:      {"image": "<base64>"}
+      Multipart: form field "image"
+
+    Response (MRZ found):
+      {
+        "success": true,
+        "text": "<raw OCR text>",
+        "data": {
+          "surname": "...", "givenNames": "...", "fullName": "...",
+          "nationality": "...", "documentNumber": "...",
+          "dateOfBirth": "YYMMDD", "dateOfExpiry": "YYMMDD",
+          "sex": "M|F|unspecified", "age": <int>,
+          "issuingCountry": "...", "personalNumber": "..."
+        }
+      }
+
+    Response (MRZ not found — image unclear or not a passport):
+      {"success": true, "text": "<raw OCR text>", "data": null}
+
+    Response (error):
+      {"success": false, "error": "..."}
+    """
+    try:
+        image_bytes = _get_image_bytes(request)
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    global _latest_passport
+    try:
+        passport_data, full_text, confidence = google_ocr.analyze_passport_image(image_bytes)
+        if passport_data:
+            _latest_passport = {
+                "documentNumber": passport_data["documentNumber"],
+                "birthYear":      passport_data["birthYear"],
+                "birthMonth":     passport_data["birthMonth"],
+                "birthDay":       passport_data["birthDay"],
+                "expiryYear":     passport_data["expiryYear"],
+                "expiryMonth":    passport_data["expiryMonth"],
+                "expiryDay":      passport_data["expiryDay"],
+                "nationality":    passport_data["nationality"],
+                "givenNames":     passport_data["givenNames"],
+                "surname":        passport_data["surname"],
+            }
+        return jsonify({"success": True, "text": full_text, "data": passport_data, "confidence": confidence})
+    except google_ocr.GoogleOCRError as exc:
+        return jsonify({"success": False, "error": str(exc)}), exc.http_status
+
+
+@app.route("/passport", methods=["GET"])
+def get_passport():
+    """
+    Return the most recently scanned passport data in the format expected by
+    the ZK proof script.  Pipe this into the evm binary to generate a proof:
+
+        curl -s http://localhost:5000/passport | cargo run --bin evm
+
+    Response (scan available):
+      {"documentNumber": "...", "birthYear": ..., ...}
+
+    Response (no scan yet):
+      404 {"success": false, "error": "No passport scanned yet."}
+    """
+    if _latest_passport is None:
+        return jsonify({"success": False, "error": "No passport scanned yet."}), 404
+    return jsonify(_latest_passport)
+
+
+ZKP_DIR = os.path.join(os.path.dirname(__file__), "..", "zkp")
+CARGO_BIN = os.path.expanduser("~/.cargo/bin/cargo")
+
+
+@app.route("/generate-proof", methods=["POST"])
+def generate_proof():
+    """
+    Generate a ZK proof from passport data and verification requirements.
+
+    Request JSON:
+      {
+        "passport": { passport data from OCR },
+        "walletAddress": "0x...",
+        "verifierAddress": "0x...",
+        "requiredAge": 18,
+        "requiredNationality": "MYS",
+        "requiredSex": "M"
+      }
+
+    Response:
+      { "proof": "0x...", "publicValues": "0x...", "vkey": "0x..." }
+    """
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({"error": "JSON body required"}), 400
+
+    passport = body.get("passport")
+    wallet_address = body.get("walletAddress")
+    verifier_address = body.get("verifierAddress", "0x" + "0" * 40)
+    required_age = body.get("requiredAge", 0)
+    required_nationality = body.get("requiredNationality", "")
+    required_sex = body.get("requiredSex", "")
+
+    if not passport or not wallet_address:
+        return jsonify({"error": "passport and walletAddress are required"}), 400
+
+    # 1. Write verification_requirements.json
+    reqs = {
+        "walletAddress": wallet_address,
+        "verifierAddress": verifier_address,
+        "requiredAge": required_age,
+        "requiredNationality": required_nationality,
+        "requiredSex": required_sex,
+    }
+    reqs_path = os.path.join(ZKP_DIR, "verification_requirements.json")
+    with open(reqs_path, "w") as f:
+        json.dump(reqs, f, indent=4)
+
+    # 2. Build passport JSON for stdin (matches PassportInput struct in evm.rs)
+    passport_input = {
+        "documentNumber": passport.get("documentNumber", ""),
+        "birthYear": passport.get("birthYear", 0),
+        "birthMonth": passport.get("birthMonth", 0),
+        "birthDay": passport.get("birthDay", 0),
+        "expiryYear": passport.get("expiryYear", 0),
+        "expiryMonth": passport.get("expiryMonth", 0),
+        "expiryDay": passport.get("expiryDay", 0),
+        "nationality": passport.get("nationality", ""),
+        "givenNames": passport.get("givenNames", ""),
+        "surname": passport.get("surname", ""),
+        "sex": passport.get("sex", ""),
+    }
+
+    # 3. Run cargo run --bin evm with passport JSON piped to stdin
+    script_dir = os.path.join(ZKP_DIR, "script")
+    env = os.environ.copy()
+    env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
+
+    try:
+        result = subprocess.run(
+            [CARGO_BIN, "run", "--release", "--bin", "evm"],
+            input=json.dumps(passport_input),
+            capture_output=True,
+            text=True,
+            cwd=script_dir,
+            env=env,
+            timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Proof generation timed out"}), 504
+
+    if result.returncode != 0:
+        return jsonify({
+            "error": "Proof generation failed",
+            "stderr": result.stderr[-500:] if result.stderr else "",
+        }), 500
+
+    # 4. Read generated proof
+    proof_path = os.path.join(ZKP_DIR, "proofs", "passport_proof_evm.json")
+    if not os.path.exists(proof_path):
+        return jsonify({"error": "Proof file not generated"}), 500
+
+    with open(proof_path) as f:
+        proof_data = json.load(f)
+
+    return jsonify({
+        "proof": proof_data.get("proof", ""),
+        "publicValues": proof_data.get("publicValues", ""),
+        "vkey": proof_data.get("vkey", ""),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    valid, message = _google_configured()
+    if not valid:
+        print(f"WARNING: {message}")
+        print("See .env.example for setup instructions.")
+    else:
+        print(f"Google Cloud credentials OK ({GOOGLE_CREDENTIALS_PATH})")
+        if GOOGLE_PROJECT_ID:
+            print(f"Project ID: {GOOGLE_PROJECT_ID}")
+
+    port = int(os.getenv("FLASK_PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)

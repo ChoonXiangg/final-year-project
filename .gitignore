@@ -5,10 +5,11 @@
 .claude/
 
 # Environment files
+.env
 */.env
 
 # Google Cloud service account credentials
-ocr-service/credentials.json
+ocr/credentials.json
 
 # Sample passports
 sample-passport/
@@ -16,3 +17,20 @@ sample-passport/
 # Python bytecode
 **/__pycache__/
 **/*.pyc
+
+# Pytest cache and coverage
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+
+# Expo CLI cache
+**/.expo/
+
+# VS Code settings in subdirectories
+**/.vscode/
+
+# ZK proof outputs
+**/proofs/
+
+# Node modules
+node_modules/

@@ -3,6 +3,7 @@ import { BrowserProvider, Contract } from 'ethers';
 import PixelBlast from './components/PixelBlast';
 import GlareHover from './components/GlareHover';
 import GlitchText from './components/GlitchText';
+import { COUNTRIES } from './data/countries';
 
 const FACTORY_ADDRESS = '0x12c9169DD8067e2D30a9d660b2bab3848279413a';
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
@@ -11,74 +12,6 @@ const PASSPORT_VKEY = '0x00e73dac84f6c42374ebe6d54e839ed1fb039bbfb193e8daa554235
 const FACTORY_ABI = [
   'function createVerifier(address _sp1Verifier, bytes32 _passportVKey, bool _requireAge, uint256 _minAge, bool _requireNationality, string _targetNationality, bool _requireSex, string _targetSex) external returns (address)',
   'event VerifierCreated(address indexed verifier, address indexed owner, bool requireAge, uint256 minAge, bool requireNationality, string targetNationality, bool requireSex, string targetSex)'
-];
-
-const COUNTRIES: { code: string; name: string }[] = [
-  { code: 'AFG', name: 'Afghanistan' }, { code: 'ALB', name: 'Albania' }, { code: 'DZA', name: 'Algeria' },
-  { code: 'AND', name: 'Andorra' }, { code: 'AGO', name: 'Angola' }, { code: 'ATG', name: 'Antigua and Barbuda' },
-  { code: 'ARG', name: 'Argentina' }, { code: 'ARM', name: 'Armenia' }, { code: 'AUS', name: 'Australia' },
-  { code: 'AUT', name: 'Austria' }, { code: 'AZE', name: 'Azerbaijan' }, { code: 'BHS', name: 'Bahamas' },
-  { code: 'BHR', name: 'Bahrain' }, { code: 'BGD', name: 'Bangladesh' }, { code: 'BRB', name: 'Barbados' },
-  { code: 'BLR', name: 'Belarus' }, { code: 'BEL', name: 'Belgium' }, { code: 'BLZ', name: 'Belize' },
-  { code: 'BEN', name: 'Benin' }, { code: 'BTN', name: 'Bhutan' }, { code: 'BOL', name: 'Bolivia' },
-  { code: 'BIH', name: 'Bosnia and Herzegovina' }, { code: 'BWA', name: 'Botswana' }, { code: 'BRA', name: 'Brazil' },
-  { code: 'BRN', name: 'Brunei' }, { code: 'BGR', name: 'Bulgaria' }, { code: 'BFA', name: 'Burkina Faso' },
-  { code: 'BDI', name: 'Burundi' }, { code: 'CPV', name: 'Cabo Verde' }, { code: 'KHM', name: 'Cambodia' },
-  { code: 'CMR', name: 'Cameroon' }, { code: 'CAN', name: 'Canada' }, { code: 'CAF', name: 'Central African Republic' },
-  { code: 'TCD', name: 'Chad' }, { code: 'CHL', name: 'Chile' }, { code: 'CHN', name: 'China' },
-  { code: 'COL', name: 'Colombia' }, { code: 'COM', name: 'Comoros' }, { code: 'COD', name: 'Congo (DRC)' },
-  { code: 'COG', name: 'Congo (Republic)' }, { code: 'CRI', name: 'Costa Rica' }, { code: 'CIV', name: "Côte d'Ivoire" },
-  { code: 'HRV', name: 'Croatia' }, { code: 'CUB', name: 'Cuba' }, { code: 'CYP', name: 'Cyprus' },
-  { code: 'CZE', name: 'Czech Republic' }, { code: 'DNK', name: 'Denmark' }, { code: 'DJI', name: 'Djibouti' },
-  { code: 'DOM', name: 'Dominican Republic' }, { code: 'ECU', name: 'Ecuador' }, { code: 'EGY', name: 'Egypt' },
-  { code: 'SLV', name: 'El Salvador' }, { code: 'GNQ', name: 'Equatorial Guinea' }, { code: 'ERI', name: 'Eritrea' },
-  { code: 'EST', name: 'Estonia' }, { code: 'SWZ', name: 'Eswatini' }, { code: 'ETH', name: 'Ethiopia' },
-  { code: 'FJI', name: 'Fiji' }, { code: 'FIN', name: 'Finland' }, { code: 'FRA', name: 'France' },
-  { code: 'GAB', name: 'Gabon' }, { code: 'GMB', name: 'Gambia' }, { code: 'GEO', name: 'Georgia' },
-  { code: 'DEU', name: 'Germany' }, { code: 'GHA', name: 'Ghana' }, { code: 'GRC', name: 'Greece' },
-  { code: 'GRD', name: 'Grenada' }, { code: 'GTM', name: 'Guatemala' }, { code: 'GIN', name: 'Guinea' },
-  { code: 'GNB', name: 'Guinea-Bissau' }, { code: 'GUY', name: 'Guyana' }, { code: 'HTI', name: 'Haiti' },
-  { code: 'HND', name: 'Honduras' }, { code: 'HUN', name: 'Hungary' }, { code: 'ISL', name: 'Iceland' },
-  { code: 'IND', name: 'India' }, { code: 'IDN', name: 'Indonesia' }, { code: 'IRN', name: 'Iran' },
-  { code: 'IRQ', name: 'Iraq' }, { code: 'IRL', name: 'Ireland' }, { code: 'ISR', name: 'Israel' },
-  { code: 'ITA', name: 'Italy' }, { code: 'JAM', name: 'Jamaica' }, { code: 'JPN', name: 'Japan' },
-  { code: 'JOR', name: 'Jordan' }, { code: 'KAZ', name: 'Kazakhstan' }, { code: 'KEN', name: 'Kenya' },
-  { code: 'KIR', name: 'Kiribati' }, { code: 'PRK', name: 'Korea (North)' }, { code: 'KOR', name: 'Korea (South)' },
-  { code: 'KWT', name: 'Kuwait' }, { code: 'KGZ', name: 'Kyrgyzstan' }, { code: 'LAO', name: 'Laos' },
-  { code: 'LVA', name: 'Latvia' }, { code: 'LBN', name: 'Lebanon' }, { code: 'LSO', name: 'Lesotho' },
-  { code: 'LBR', name: 'Liberia' }, { code: 'LBY', name: 'Libya' }, { code: 'LIE', name: 'Liechtenstein' },
-  { code: 'LTU', name: 'Lithuania' }, { code: 'LUX', name: 'Luxembourg' }, { code: 'MDG', name: 'Madagascar' },
-  { code: 'MWI', name: 'Malawi' }, { code: 'MYS', name: 'Malaysia' }, { code: 'MDV', name: 'Maldives' },
-  { code: 'MLI', name: 'Mali' }, { code: 'MLT', name: 'Malta' }, { code: 'MHL', name: 'Marshall Islands' },
-  { code: 'MRT', name: 'Mauritania' }, { code: 'MUS', name: 'Mauritius' }, { code: 'MEX', name: 'Mexico' },
-  { code: 'FSM', name: 'Micronesia' }, { code: 'MDA', name: 'Moldova' }, { code: 'MCO', name: 'Monaco' },
-  { code: 'MNG', name: 'Mongolia' }, { code: 'MNE', name: 'Montenegro' }, { code: 'MAR', name: 'Morocco' },
-  { code: 'MOZ', name: 'Mozambique' }, { code: 'MMR', name: 'Myanmar' }, { code: 'NAM', name: 'Namibia' },
-  { code: 'NRU', name: 'Nauru' }, { code: 'NPL', name: 'Nepal' }, { code: 'NLD', name: 'Netherlands' },
-  { code: 'NZL', name: 'New Zealand' }, { code: 'NIC', name: 'Nicaragua' }, { code: 'NER', name: 'Niger' },
-  { code: 'NGA', name: 'Nigeria' }, { code: 'MKD', name: 'North Macedonia' }, { code: 'NOR', name: 'Norway' },
-  { code: 'OMN', name: 'Oman' }, { code: 'PAK', name: 'Pakistan' }, { code: 'PLW', name: 'Palau' },
-  { code: 'PAN', name: 'Panama' }, { code: 'PNG', name: 'Papua New Guinea' }, { code: 'PRY', name: 'Paraguay' },
-  { code: 'PER', name: 'Peru' }, { code: 'PHL', name: 'Philippines' }, { code: 'POL', name: 'Poland' },
-  { code: 'PRT', name: 'Portugal' }, { code: 'QAT', name: 'Qatar' }, { code: 'ROU', name: 'Romania' },
-  { code: 'RUS', name: 'Russia' }, { code: 'RWA', name: 'Rwanda' }, { code: 'KNA', name: 'Saint Kitts and Nevis' },
-  { code: 'LCA', name: 'Saint Lucia' }, { code: 'VCT', name: 'Saint Vincent and the Grenadines' },
-  { code: 'WSM', name: 'Samoa' }, { code: 'SMR', name: 'San Marino' }, { code: 'STP', name: 'Sao Tome and Principe' },
-  { code: 'SAU', name: 'Saudi Arabia' }, { code: 'SEN', name: 'Senegal' }, { code: 'SRB', name: 'Serbia' },
-  { code: 'SYC', name: 'Seychelles' }, { code: 'SLE', name: 'Sierra Leone' }, { code: 'SGP', name: 'Singapore' },
-  { code: 'SVK', name: 'Slovakia' }, { code: 'SVN', name: 'Slovenia' }, { code: 'SLB', name: 'Solomon Islands' },
-  { code: 'SOM', name: 'Somalia' }, { code: 'ZAF', name: 'South Africa' }, { code: 'SSD', name: 'South Sudan' },
-  { code: 'ESP', name: 'Spain' }, { code: 'LKA', name: 'Sri Lanka' }, { code: 'SDN', name: 'Sudan' },
-  { code: 'SUR', name: 'Suriname' }, { code: 'SWE', name: 'Sweden' }, { code: 'CHE', name: 'Switzerland' },
-  { code: 'SYR', name: 'Syria' }, { code: 'TWN', name: 'Taiwan' }, { code: 'TJK', name: 'Tajikistan' },
-  { code: 'TZA', name: 'Tanzania' }, { code: 'THA', name: 'Thailand' }, { code: 'TLS', name: 'Timor-Leste' },
-  { code: 'TGO', name: 'Togo' }, { code: 'TON', name: 'Tonga' }, { code: 'TTO', name: 'Trinidad and Tobago' },
-  { code: 'TUN', name: 'Tunisia' }, { code: 'TUR', name: 'Turkey' }, { code: 'TKM', name: 'Turkmenistan' },
-  { code: 'TUV', name: 'Tuvalu' }, { code: 'UGA', name: 'Uganda' }, { code: 'UKR', name: 'Ukraine' },
-  { code: 'ARE', name: 'United Arab Emirates' }, { code: 'GBR', name: 'United Kingdom' },
-  { code: 'USA', name: 'United States' }, { code: 'URY', name: 'Uruguay' }, { code: 'UZB', name: 'Uzbekistan' },
-  { code: 'VUT', name: 'Vanuatu' }, { code: 'VEN', name: 'Venezuela' }, { code: 'VNM', name: 'Vietnam' },
-  { code: 'YEM', name: 'Yemen' }, { code: 'ZMB', name: 'Zambia' }, { code: 'ZWE', name: 'Zimbabwe' },
 ];
 
 function App() {
@@ -117,6 +50,29 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [ownedContracts, setOwnedContracts] = useState<string[]>([]);
+  const [loadingContracts, setLoadingContracts] = useState(false);
+  const [showContracts, setShowContracts] = useState(false);
+
+  const fetchOwnedContracts = async (address: string) => {
+    if (!(window as any).ethereum) return;
+    setLoadingContracts(true);
+    try {
+      const provider = new BrowserProvider((window as any).ethereum);
+      const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
+      const filter = factory.filters.VerifierCreated(null, address);
+      const events = await factory.queryFilter(filter);
+      const addresses = events
+        .map((e: any) => { try { return factory.interface.parseLog(e)?.args.verifier; } catch { return null; } })
+        .filter(Boolean);
+      setOwnedContracts(addresses);
+    } catch (err) {
+      console.error('Failed to fetch contracts:', err);
+    } finally {
+      setLoadingContracts(false);
+    }
+  };
 
   const connectWallet = async () => {
     if (!(window as any).ethereum) {
@@ -128,6 +84,7 @@ function App() {
       const provider = new BrowserProvider((window as any).ethereum);
       const accounts = await provider.send('eth_requestAccounts', []);
       setWalletAddress(accounts[0]);
+      await fetchOwnedContracts(accounts[0]);
     } catch (err: any) {
       console.error('Wallet connection failed:', err);
     } finally {
@@ -139,6 +96,8 @@ function App() {
     setWalletAddress(null);
     setDeployedAddress(null);
     setError(null);
+    setOwnedContracts([]);
+    setShowContracts(false);
   };
 
   const deployVerifier = async () => {
@@ -147,7 +106,32 @@ function App() {
     setError(null);
     setDeployedAddress(null);
     try {
-      const provider = new BrowserProvider((window as any).ethereum);
+      const ethereum = (window as any).ethereum;
+      const chainId = await ethereum.request({ method: 'eth_chainId' });
+      if (chainId !== '0xaa36a7') {
+        try {
+          await ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0xaa36a7' }],
+          });
+        } catch (switchErr: any) {
+          if (switchErr.code === 4902) {
+            await ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia',
+                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://rpc.sepolia.org'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io'],
+              }],
+            });
+          } else {
+            throw switchErr;
+          }
+        }
+      }
+      const provider = new BrowserProvider(ethereum);
       const signer = await provider.getSigner();
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
       const tx = await factory.createVerifier(
@@ -164,7 +148,10 @@ function App() {
       const event = receipt.logs
         .map((log: any) => { try { return factory.interface.parseLog(log); } catch { return null; } })
         .find((ev: any) => ev && ev.name === 'VerifierCreated');
-      if (event) setDeployedAddress(event.args.verifier);
+      if (event) {
+        setDeployedAddress(event.args.verifier);
+        setOwnedContracts(prev => [...prev, event.args.verifier]);
+      }
     } catch (err: any) {
       setError(err.message || 'Deployment failed');
       console.error('Deploy failed:', err);
@@ -207,7 +194,7 @@ function App() {
           }}
         >
           <GlitchText
-            speed={5}
+            speed={1}
             enableShadows
             enableOnHover={false}
             style={{ fontFamily: "'Major Mono Display', monospace", fontSize: '5rem' }}
@@ -302,45 +289,105 @@ function App() {
               )}
             </div>
           </div>
-          <GlareHover
-            background="#000"
-            borderColor="#fff"
-            borderRadius="0"
-            width="auto"
-            height="auto"
-            glareColor="#ffffff"
-            glareOpacity={1}
-            glareAngle={-30}
-            glareSize={200}
-            transitionDuration={2000}
-            style={{ marginTop: '1.5rem', display: 'inline-grid', opacity: deploying || !walletAddress ? 0.5 : 1 }}
-          >
-            <button
-              onClick={deployVerifier}
-              disabled={deploying || !walletAddress}
-              style={{
-                padding: '1rem',
-                background: 'transparent',
-                border: 'none',
-                color: '#fff',
-                fontFamily: "'Major Mono Display', monospace",
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                cursor: deploying || !walletAddress ? 'not-allowed' : 'pointer',
-              }}
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '1.5rem' }}>
+            <GlareHover
+              background="#000"
+              borderColor="#fff"
+              borderRadius="0"
+              width="auto"
+              height="auto"
+              glareColor="#ffffff"
+              glareOpacity={1}
+              glareAngle={-30}
+              glareSize={200}
+              transitionDuration={2000}
+              style={{ display: 'inline-grid', opacity: deploying || !walletAddress || (!ageOn && !nationalityOn && !genderOn) ? 0.5 : 1 }}
             >
-              {deploying ? 'Deploying...' : 'Deploy Contract'}
-            </button>
-          </GlareHover>
+              <button
+                onClick={deployVerifier}
+                disabled={deploying || !walletAddress || (!ageOn && !nationalityOn && !genderOn)}
+                style={{
+                  padding: '1rem',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#fff',
+                  fontFamily: "'Major Mono Display', monospace",
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  cursor: deploying || !walletAddress || (!ageOn && !nationalityOn && !genderOn) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {deploying ? 'Deploying...' : 'Deploy Contract'}
+              </button>
+            </GlareHover>
+            <GlareHover
+              background="#000"
+              borderColor="#fff"
+              borderRadius="0"
+              width="auto"
+              height="auto"
+              glareColor="#ffffff"
+              glareOpacity={1}
+              glareAngle={-30}
+              glareSize={200}
+              transitionDuration={2000}
+              style={{ display: 'inline-grid', opacity: !walletAddress || ownedContracts.length === 0 ? 0.5 : 1 }}
+            >
+              <button
+                onClick={() => setShowContracts(prev => !prev)}
+                disabled={!walletAddress || ownedContracts.length === 0}
+                style={{
+                  padding: '1rem',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#fff',
+                  fontFamily: "'Major Mono Display', monospace",
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  cursor: !walletAddress || ownedContracts.length === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loadingContracts ? 'Loading...' : 'View Deployed Contracts'}
+              </button>
+            </GlareHover>
+          </div>
+          {showContracts && ownedContracts.length > 0 && (
+            <div style={{ marginTop: '1rem', fontFamily: "'Major Mono Display', monospace", fontSize: '1rem', color: '#fff' }}>
+              {ownedContracts.map((addr, i) => (
+                <p key={addr} style={{ margin: '0.25rem 0', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#000', padding: '0.25rem 0', width: '100%' }}>
+                  {i + 1}. {addr}
+                </p>
+              ))}
+            </div>
+          )}
           {error && (
             <p style={{ color: '#f87171', fontFamily: "'Major Mono Display', monospace", fontSize: '0.85rem', marginTop: '1rem' }}>
               {error}
             </p>
           )}
           {deployedAddress && (
-            <p style={{ color: '#4ade80', fontFamily: "'Major Mono Display', monospace", fontSize: '0.85rem', marginTop: '1rem' }}>
-              Deployed: {deployedAddress}
-            </p>
+            <div style={{ marginTop: '1rem', fontFamily: "'Major Mono Display', monospace", fontSize: '1rem', color: '#fff' }}>
+              <p style={{ margin: '0 0 0.25rem 0' }}><span style={{ background: '#000', padding: '0.25rem 0' }}>Deploy success!</span></p>
+              <p style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#000', padding: '0.25rem 0' }}>
+                Contract address: {deployedAddress}
+                <button
+                  onClick={() => { navigator.clipboard.writeText(deployedAddress); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  title={copied ? 'Copied!' : 'Copy address'}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: copied ? '#4ade80' : '#fff', display: 'flex', alignItems: 'center' }}
+                >
+                  {copied ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
+                </button>
+              </p>
+            </div>
           )}
         </div>
 

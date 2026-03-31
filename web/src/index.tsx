@@ -1,8 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './index.css';
-// import App from './App';
-import App from './TestBackground';
+import App from './App';
+import DeployedContracts from './DeployedContracts';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(
@@ -10,7 +11,12 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/deployed" element={<DeployedContracts />} />
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>
 );
 

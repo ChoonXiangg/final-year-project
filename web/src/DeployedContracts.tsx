@@ -1,10 +1,22 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BrowserProvider, Contract } from 'ethers';
 import PixelBlast from './components/PixelBlast';
 import GlareHover from './components/GlareHover';
 import GlitchText from './components/GlitchText';
 import AnimatedList from './components/AnimatedList';
 import { getCountryName } from './data/countries';
+import StaggeredMenu from './components/StaggeredMenu';
+
+const menuItems = [
+  { label: 'Deploy', ariaLabel: 'Deploy a verifier contract', link: '/' },
+  { label: 'View', ariaLabel: 'View deployed contracts', link: '/deployed' },
+];
+
+const socialItems = [
+  { label: 'GitHub', link: 'https://github.com' },
+  { label: 'Docs', link: '#' },
+];
 
 const FACTORY_ADDRESS = '0x2b3Cedc63952530db65FDCfd48915D33BaDE488a';
 const FACTORY_ABI = [
@@ -46,11 +58,13 @@ function formatTimestamp(ts: number): string {
 }
 
 function DeployedContracts() {
+  const navigate = useNavigate();
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchContracts = async (address: string) => {
     if (!(window as any).ethereum) return;
@@ -121,7 +135,20 @@ function DeployedContracts() {
   return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Major+Mono+Display&display=swap');`}</style>
-      <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative' }}>
+      <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative', overflow: 'hidden' }}>
+        <StaggeredMenu
+          position="left"
+          items={menuItems}
+          socialItems={socialItems}
+          displaySocials
+          displayItemNumbering
+          menuButtonColor="#ffffff"
+          openMenuButtonColor="#fff"
+          changeMenuColorOnOpen
+          colors={['red', 'cyan']}
+          accentColor="#00ffff"
+          isFixed={false}
+        />
         <PixelBlast
           variant="square"
           pixelSize={4}
@@ -142,13 +169,15 @@ function DeployedContracts() {
           transparent
         />
         <div
+          onClick={() => navigate('/')}
           style={{
             position: 'absolute',
             top: '2rem',
-            left: '2rem',
+            left: '8rem',
             zIndex: 1,
             background: '#000',
             padding: '0.25rem 0',
+            cursor: 'pointer',
           }}
         >
           <GlitchText
@@ -164,8 +193,8 @@ function DeployedContracts() {
         <p
           style={{
             position: 'absolute',
-            top: '9rem',
-            left: '2rem',
+            top: '7.5rem',
+            left: '8rem',
             color: '#fff',
             ...MONO,
             fontSize: '1rem',
@@ -194,7 +223,7 @@ function DeployedContracts() {
           </h2>
           {!walletAddress ? (
             <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
-              <span style={{ background: '#000', padding: '0.25rem 0' }}>Connect your wallet to view deployed contracts</span>
+              <span style={{ background: '#000', padding: '0.25rem 0' }}>Connect your wallet to view your deployed contracts</span>
             </p>
           ) : loading ? (
             <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
@@ -253,9 +282,30 @@ function DeployedContracts() {
               fontSize: '1rem',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
             }}
           >
             {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : (connecting ? 'Connecting...' : 'Connect Wallet')}
+            {walletAddress && (
+              <span
+                onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(walletAddress); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                title={copied ? 'Copied!' : 'Copy address'}
+                style={{ color: copied ? '#4ade80' : '#fff', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              >
+                {copied ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
+              </span>
+            )}
           </button>
         </GlareHover>
       </div>

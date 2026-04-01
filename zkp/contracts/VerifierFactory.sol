@@ -9,10 +9,16 @@ import "./AppVerifier.sol";
 contract VerifierFactory {
     PassportRegistry public immutable registry;
 
+    mapping(address => address[]) private _verifiersByOwner;
+
     event VerifierCreated(address indexed verifier, address indexed owner, bool requireAge, uint256 minAge, bool requireNationality, string targetNationality, bool requireSex, string targetSex);
 
     constructor(address _registry) {
         registry = PassportRegistry(_registry);
+    }
+
+    function getVerifiers(address owner) external view returns (address[] memory) {
+        return _verifiersByOwner[owner];
     }
 
     function createVerifier(
@@ -39,6 +45,8 @@ contract VerifierFactory {
 
         // Auto-register the new verifier in the registry
         registry.addVerifier(address(verifier));
+
+        _verifiersByOwner[msg.sender].push(address(verifier));
 
         emit VerifierCreated(address(verifier), msg.sender, _requireAge, _minAge, _requireNationality, _targetNationality, _requireSex, _targetSex);
 

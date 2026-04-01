@@ -6,9 +6,18 @@ import GlitchText from './components/GlitchText';
 import AnimatedList from './components/AnimatedList';
 import { getCountryName } from './data/countries';
 
-const FACTORY_ADDRESS = '0x12c9169DD8067e2D30a9d660b2bab3848279413a';
+const FACTORY_ADDRESS = '0x2b3Cedc63952530db65FDCfd48915D33BaDE488a';
 const FACTORY_ABI = [
-  'event VerifierCreated(address indexed verifier, address indexed owner, bool requireAge, uint256 minAge, bool requireNationality, string targetNationality, bool requireSex, string targetSex)'
+  'function getVerifiers(address owner) external view returns (address[])'
+];
+const APP_VERIFIER_ABI = [
+  'function requireAge() view returns (bool)',
+  'function minAge() view returns (uint256)',
+  'function requireNationality() view returns (bool)',
+  'function targetNationality() view returns (string)',
+  'function requireSex() view returns (bool)',
+  'function targetSex() view returns (string)',
+  'function deployedAt() view returns (uint256)',
 ];
 
 const MONO: React.CSSProperties = { fontFamily: "'Major Mono Display', monospace", fontWeight: 'bold' };
@@ -41,34 +50,45 @@ function DeployedContracts() {
   const [connecting, setConnecting] = useState(false);
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchContracts = async (address: string) => {
     if (!(window as any).ethereum) return;
     setLoading(true);
+    setFetchError(null);
     try {
       const provider = new BrowserProvider((window as any).ethereum);
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
-      const filter = factory.filters.VerifierCreated(null, address);
-      const events = await factory.queryFilter(filter);
+      const verifierAddresses: string[] = await factory.getVerifiers(address);
       const data: ContractData[] = await Promise.all(
-        events.map(async (e: any) => {
-          const parsed = factory.interface.parseLog(e);
-          const block = await provider.getBlock(e.blockNumber);
+        verifierAddresses.map(async (addr) => {
+          const verifier = new Contract(addr, APP_VERIFIER_ABI, provider);
+          const [requireAge, minAge, requireNationality, targetNationality, requireSex, targetSex, deployedAt] =
+            await Promise.all([
+              verifier.requireAge(),
+              verifier.minAge(),
+              verifier.requireNationality(),
+              verifier.targetNationality(),
+              verifier.requireSex(),
+              verifier.targetSex(),
+              verifier.deployedAt(),
+            ]);
           return {
-            address: parsed?.args.verifier,
-            requireAge: parsed?.args.requireAge,
-            minAge: Number(parsed?.args.minAge),
-            requireNationality: parsed?.args.requireNationality,
-            targetNationality: parsed?.args.targetNationality,
-            requireSex: parsed?.args.requireSex,
-            targetSex: parsed?.args.targetSex,
-            timestamp: block?.timestamp ?? 0,
+            address: addr,
+            requireAge,
+            minAge: Number(minAge),
+            requireNationality,
+            targetNationality,
+            requireSex,
+            targetSex,
+            timestamp: Number(deployedAt),
           };
         })
       );
-      setContracts(data.filter(c => c.address));
-    } catch (err) {
+      setContracts(data);
+    } catch (err: any) {
       console.error('Failed to fetch contracts:', err);
+      setFetchError(err?.message ?? 'Failed to fetch contracts');
     } finally {
       setLoading(false);
     }
@@ -95,6 +115,7 @@ function DeployedContracts() {
   const disconnectWallet = () => {
     setWalletAddress(null);
     setContracts([]);
+    setFetchError(null);
   };
 
   return (
@@ -178,6 +199,10 @@ function DeployedContracts() {
           ) : loading ? (
             <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
               <span style={{ background: '#000', padding: '0.25rem 0' }}>Loading...</span>
+            </p>
+          ) : fetchError ? (
+            <p style={{ color: '#f66', ...MONO, fontSize: '1rem', margin: 0 }}>
+              <span style={{ background: '#000', padding: '0.25rem 0' }}>Error: {fetchError}</span>
             </p>
           ) : contracts.length === 0 ? (
             <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>

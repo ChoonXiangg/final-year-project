@@ -25,6 +25,7 @@ contract AppVerifier {
     uint256 public minAge;
     string public targetNationality;
     string public targetSex;
+    uint256 public deployedAt;
 
     constructor(
         address _registry,
@@ -46,6 +47,7 @@ contract AppVerifier {
         targetNationality = _targetNationality;
         requireSex = _requireSex;
         targetSex = _targetSex;
+        deployedAt = block.timestamp;
     }
 
     mapping(address => bool) public verified;

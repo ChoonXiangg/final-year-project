@@ -5,13 +5,14 @@ import GlareHover from './components/GlareHover';
 import GlitchText from './components/GlitchText';
 import { COUNTRIES } from './data/countries';
 
-const FACTORY_ADDRESS = '0x12c9169DD8067e2D30a9d660b2bab3848279413a';
+const FACTORY_ADDRESS = '0x2b3Cedc63952530db65FDCfd48915D33BaDE488a';
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
 const PASSPORT_VKEY = '0x00e73dac84f6c42374ebe6d54e839ed1fb039bbfb193e8daa5542359657a818c';
 
 const FACTORY_ABI = [
   'function createVerifier(address _sp1Verifier, bytes32 _passportVKey, bool _requireAge, uint256 _minAge, bool _requireNationality, string _targetNationality, bool _requireSex, string _targetSex) external returns (address)',
-  'event VerifierCreated(address indexed verifier, address indexed owner, bool requireAge, uint256 minAge, bool requireNationality, string targetNationality, bool requireSex, string targetSex)'
+  'function getVerifiers(address owner) external view returns (address[])',
+  'event VerifierCreated(address indexed verifier, address indexed owner, bool requireAge, uint256 minAge, bool requireNationality, string targetNationality, bool requireSex, string targetSex)',
 ];
 
 function App() {
@@ -56,16 +57,11 @@ function App() {
   const [showContracts, setShowContracts] = useState(false);
 
   const fetchOwnedContracts = async (address: string) => {
-    if (!(window as any).ethereum) return;
     setLoadingContracts(true);
     try {
       const provider = new BrowserProvider((window as any).ethereum);
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
-      const filter = factory.filters.VerifierCreated(null, address);
-      const events = await factory.queryFilter(filter);
-      const addresses = events
-        .map((e: any) => { try { return factory.interface.parseLog(e)?.args.verifier; } catch { return null; } })
-        .filter(Boolean);
+      const addresses: string[] = await factory.getVerifiers(address);
       setOwnedContracts(addresses);
     } catch (err) {
       console.error('Failed to fetch contracts:', err);

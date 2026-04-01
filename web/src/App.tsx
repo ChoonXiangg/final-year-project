@@ -1,9 +1,21 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BrowserProvider, Contract } from 'ethers';
 import PixelBlast from './components/PixelBlast';
 import GlareHover from './components/GlareHover';
 import GlitchText from './components/GlitchText';
 import { COUNTRIES } from './data/countries';
+import StaggeredMenu from './components/StaggeredMenu';
+
+const menuItems = [
+  { label: 'Deploy', ariaLabel: 'Deploy a verifier contract', link: '/' },
+  { label: 'View', ariaLabel: 'View deployed contracts', link: '/deployed' },
+];
+
+const socialItems = [
+  { label: 'GitHub', link: 'https://github.com' },
+  { label: 'Docs', link: '#' },
+];
 
 const FACTORY_ADDRESS = '0x2b3Cedc63952530db65FDCfd48915D33BaDE488a';
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
@@ -16,6 +28,7 @@ const FACTORY_ABI = [
 ];
 
 function App() {
+  const navigate = useNavigate();
   const [ageOn, setAgeOn] = useState(false);
   const [nationalityOn, setNationalityOn] = useState(false);
   const [genderOn, setGenderOn] = useState(false);
@@ -52,24 +65,6 @@ function App() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [ownedContracts, setOwnedContracts] = useState<string[]>([]);
-  const [loadingContracts, setLoadingContracts] = useState(false);
-  const [showContracts, setShowContracts] = useState(false);
-
-  const fetchOwnedContracts = async (address: string) => {
-    setLoadingContracts(true);
-    try {
-      const provider = new BrowserProvider((window as any).ethereum);
-      const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
-      const addresses: string[] = await factory.getVerifiers(address);
-      setOwnedContracts(addresses);
-    } catch (err) {
-      console.error('Failed to fetch contracts:', err);
-    } finally {
-      setLoadingContracts(false);
-    }
-  };
-
   const connectWallet = async () => {
     if (!(window as any).ethereum) {
       alert('MetaMask is not installed');
@@ -80,7 +75,6 @@ function App() {
       const provider = new BrowserProvider((window as any).ethereum);
       const accounts = await provider.send('eth_requestAccounts', []);
       setWalletAddress(accounts[0]);
-      await fetchOwnedContracts(accounts[0]);
     } catch (err: any) {
       console.error('Wallet connection failed:', err);
     } finally {
@@ -92,8 +86,6 @@ function App() {
     setWalletAddress(null);
     setDeployedAddress(null);
     setError(null);
-    setOwnedContracts([]);
-    setShowContracts(false);
   };
 
   const deployVerifier = async () => {
@@ -146,7 +138,6 @@ function App() {
         .find((ev: any) => ev && ev.name === 'VerifierCreated');
       if (event) {
         setDeployedAddress(event.args.verifier);
-        setOwnedContracts(prev => [...prev, event.args.verifier]);
       }
     } catch (err: any) {
       setError(err.message || 'Deployment failed');
@@ -159,7 +150,20 @@ function App() {
   return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Major+Mono+Display&display=swap');`}</style>
-      <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative' }}>
+      <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative', overflow: 'hidden' }}>
+        <StaggeredMenu
+          position="left"
+          items={menuItems}
+          socialItems={socialItems}
+          displaySocials
+          displayItemNumbering
+          menuButtonColor="#ffffff"
+          openMenuButtonColor="#fff"
+          changeMenuColorOnOpen
+          colors={['red', 'cyan']}
+          accentColor="#00ffff"
+          isFixed={false}
+        />
         <PixelBlast
           variant="square"
           pixelSize={4}
@@ -180,13 +184,15 @@ function App() {
           transparent
         />
         <div
+          onClick={() => navigate('/')}
           style={{
             position: 'absolute',
             top: '2rem',
-            left: '2rem',
+            left: '8rem',
             zIndex: 1,
             background: '#000',
             padding: '0.25rem 0',
+            cursor: 'pointer',
           }}
         >
           <GlitchText
@@ -201,8 +207,8 @@ function App() {
         <p
           style={{
             position: 'absolute',
-            top: '9rem',
-            left: '2rem',
+            top: '7.5rem',
+            left: '8rem',
             color: '#fff',
             fontFamily: "'Major Mono Display', monospace",
             fontSize: '1rem',
@@ -295,7 +301,7 @@ function App() {
               glareColor="#ffffff"
               glareOpacity={1}
               glareAngle={-30}
-              glareSize={200}
+              glareSize={500}
               transitionDuration={2000}
               style={{ display: 'inline-grid', opacity: deploying || !walletAddress || (!ageOn && !nationalityOn && !genderOn) ? 0.5 : 1 }}
             >
@@ -316,46 +322,7 @@ function App() {
                 {deploying ? 'Deploying...' : 'Deploy Contract'}
               </button>
             </GlareHover>
-            <GlareHover
-              background="#000"
-              borderColor="#fff"
-              borderRadius="0"
-              width="auto"
-              height="auto"
-              glareColor="#ffffff"
-              glareOpacity={1}
-              glareAngle={-30}
-              glareSize={200}
-              transitionDuration={2000}
-              style={{ display: 'inline-grid', opacity: !walletAddress || ownedContracts.length === 0 ? 0.5 : 1 }}
-            >
-              <button
-                onClick={() => setShowContracts(prev => !prev)}
-                disabled={!walletAddress || ownedContracts.length === 0}
-                style={{
-                  padding: '1rem',
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#fff',
-                  fontFamily: "'Major Mono Display', monospace",
-                  fontSize: '1rem',
-                  fontWeight: 'bold',
-                  cursor: !walletAddress || ownedContracts.length === 0 ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {loadingContracts ? 'Loading...' : 'View Deployed Contracts'}
-              </button>
-            </GlareHover>
           </div>
-          {showContracts && ownedContracts.length > 0 && (
-            <div style={{ marginTop: '1rem', fontFamily: "'Major Mono Display', monospace", fontSize: '1rem', color: '#fff' }}>
-              {ownedContracts.map((addr, i) => (
-                <p key={addr} style={{ margin: '0.25rem 0', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#000', padding: '0.25rem 0', width: '100%' }}>
-                  {i + 1}. {addr}
-                </p>
-              ))}
-            </div>
-          )}
           {error && (
             <p style={{ color: '#f87171', fontFamily: "'Major Mono Display', monospace", fontSize: '0.85rem', marginTop: '1rem' }}>
               {error}
@@ -413,9 +380,30 @@ function App() {
               fontWeight: 'bold',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
             }}
           >
             {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : (connecting ? 'Connecting...' : 'Connect Wallet')}
+            {walletAddress && (
+              <span
+                onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(walletAddress); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                title={copied ? 'Copied!' : 'Copy address'}
+                style={{ color: copied ? '#4ade80' : '#fff', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              >
+                {copied ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
+              </span>
+            )}
           </button>
         </GlareHover>
 

@@ -67,11 +67,32 @@ function DeployedContracts() {
   const [copied, setCopied] = useState(false);
 
   const fetchContracts = async (address: string) => {
-    if (!(window as any).ethereum) return;
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) return;
     setLoading(true);
     setFetchError(null);
     try {
-      const provider = new BrowserProvider((window as any).ethereum);
+      const chainId = await ethereum.request({ method: 'eth_chainId' });
+      if (chainId !== '0xaa36a7') {
+        try {
+          await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xaa36a7' }] });
+        } catch (switchErr: any) {
+          if (switchErr.code === 4902) {
+            await ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia',
+                rpcUrls: ['https://rpc.sepolia.org'],
+                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+              }],
+            });
+          } else {
+            throw new Error('Please switch to the Sepolia test network');
+          }
+        }
+      }
+      const provider = new BrowserProvider(ethereum);
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
       const verifierAddresses: string[] = await factory.getVerifiers(address);
       const data: ContractData[] = await Promise.all(
@@ -99,7 +120,7 @@ function DeployedContracts() {
           };
         })
       );
-      setContracts(data);
+      setContracts(data.reverse());
     } catch (err: any) {
       console.error('Failed to fetch contracts:', err);
       setFetchError(err?.message ?? 'Failed to fetch contracts');

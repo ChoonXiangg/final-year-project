@@ -20,3 +20,6 @@ coverage.json
 # SP1 / Project specific
 elf/
 fixture/
+
+# Verification requirements
+verification-requirements/

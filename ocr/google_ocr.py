@@ -166,19 +166,22 @@ def _find_mrz_lines(text: str) -> tuple[str, str] | None:
     return None
 
 
-def _yymmdd_to_parts(yymmdd: str) -> tuple[int, int, int] | None:
+def _yymmdd_to_parts(yymmdd: str, future: bool = False) -> tuple[int, int, int] | None:
     """
     Parse a YYMMDD string into (full_year, month, day).
 
-    Century heuristic: 2-digit years <= the current 2-digit year are in the
-    2000s; those greater belong to the 1900s.  Returns None on parse failure.
+    For birth dates (future=False): years > current 2-digit year are 1900s.
+    For expiry dates (future=True): always 2000s (passports don't expire in 1900s).
     """
     try:
         yy = int(yymmdd[0:2])
         mm = int(yymmdd[2:4])
         dd = int(yymmdd[4:6])
-        current_yy = date.today().year % 100
-        year = 2000 + yy if yy <= current_yy else 1900 + yy
+        if future:
+            year = 2000 + yy
+        else:
+            current_yy = date.today().year % 100
+            year = 2000 + yy if yy <= current_yy else 1900 + yy
         return year, mm, dd
     except (ValueError, IndexError):
         return None
@@ -258,7 +261,7 @@ def parse_mrz(text: str) -> dict | None:
     personal_number = line2[28:42].replace("<", "")
 
     dob_parts = _yymmdd_to_parts(date_of_birth)
-    exp_parts = _yymmdd_to_parts(date_of_expiry)
+    exp_parts = _yymmdd_to_parts(date_of_expiry, future=True)
 
     return {
         "name": full_name,

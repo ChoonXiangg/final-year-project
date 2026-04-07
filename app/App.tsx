@@ -62,6 +62,8 @@ export default function App() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [passportData, setPassportData] = useState<Record<string, any> | null>(null);
   const [passportModalOpen, setPassportModalOpen] = useState(false);
+  const [proofLoading, setProofLoading] = useState(false);
+  const { address: walletAddress } = useWalletConnectModal();
   const cameraRef = useRef<CameraView>(null);
 
   // Overlay dimensions (in screen points, computed from camera view layout)
@@ -91,6 +93,45 @@ export default function App() {
       }
     }
     setCameraOpen(true);
+  };
+
+  const handleGenerateProof = async () => {
+    if (!passportData) return;
+    if (!walletAddress) {
+      Alert.alert('Wallet not connected', 'Please connect your wallet first.');
+      return;
+    }
+    if (!storedAddress) {
+      Alert.alert('No contract address', 'Please enter a verifier contract address first.');
+      return;
+    }
+    setProofLoading(true);
+    try {
+      const response = await fetch(`${OCR_API_URL}/generate-proof`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passport: passportData,
+          walletAddress,
+          verifierAddress: storedAddress,
+        }),
+      });
+      const text = await response.text();
+      let json: any;
+      try { json = JSON.parse(text); } catch {
+        Alert.alert('Error', `Invalid server response:\n${text.slice(0, 200)}`);
+        return;
+      }
+      if (json.error) {
+        Alert.alert('Proof generation failed', json.error);
+        return;
+      }
+      Alert.alert('Success', 'Proof generated successfully!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Failed to contact server.');
+    } finally {
+      setProofLoading(false);
+    }
   };
 
   const handleCloseCamera = () => {
@@ -291,23 +332,33 @@ export default function App() {
           </TouchableOpacity>
           <Text style={styles.passportModalTitle}>passport data</Text>
           {passportData && (
-            <ScrollView style={styles.passportScroll} contentContainerStyle={styles.passportScrollContent}>
-              {[
-                ['name',            passportData.fullName],
-                ['nationality',     passportData.nationality],
-                ['sex',             passportData.sex],
-                ['age',             passportData.age],
-                ['date of birth',   passportData.dateOfBirth],
-                ['date of expiry',  passportData.dateOfExpiry],
-                ['document no.',    passportData.documentNumber],
-                ['issuing country', passportData.issuingCountry],
-              ].filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => (
-                <View key={label as string} style={styles.passportRow}>
-                  <Text style={styles.passportLabel}>{label as string}</Text>
-                  <Text style={styles.passportValue}>{String(value)}</Text>
-                </View>
-              ))}
-            </ScrollView>
+            <>
+              <ScrollView style={styles.passportScroll} contentContainerStyle={styles.passportScrollContent}>
+                {[
+                  ['document no.',    passportData.documentNumber],
+                  ['name',            passportData.name],
+                  ['nationality',     passportData.nationality],
+                  ['date of birth',   passportData.dateOfBirth],
+                  ['sex',             passportData.sex],
+                  ['identity no.',    passportData.personalNumber],
+                  ['date of expiry',  passportData.dateOfExpiry],
+                  ['issuing country', passportData.issuingCountry],
+                ].filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => (
+                  <View key={label as string} style={styles.passportRow}>
+                    <Text style={styles.passportLabel}>{label as string}</Text>
+                    <Text style={styles.passportValue}>{String(value)}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={[styles.generateProofButton, proofLoading && { opacity: 0.5 }]}
+                activeOpacity={0.7}
+                onPress={handleGenerateProof}
+                disabled={proofLoading}
+              >
+                <Text style={styles.generateProofButtonText}>{proofLoading ? 'generating...' : 'generate proof'}</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </Modal>
@@ -344,7 +395,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ffffff',
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
   },
   walletButtonText: {
     fontFamily: 'MajorMonoDisplay_400Regular',
@@ -375,7 +426,7 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
     borderLeftWidth: 0,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
   },
   contractButtonText: {
     fontFamily: 'MajorMonoDisplay_400Regular',
@@ -443,12 +494,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     borderWidth: 1,
     borderColor: '#ffffff',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   previewButtonText: {
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 14,
+    fontSize: 12,
     color: '#ffffff',
     fontWeight: 'bold',
   },
@@ -460,10 +511,11 @@ const styles = StyleSheet.create({
   },
   passportModalTitle: {
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 18,
+    fontSize: 20,
     color: '#ffffff',
     letterSpacing: 2,
     marginBottom: 32,
+    textAlign: 'center',
   },
   passportScroll: {
     flex: 1,
@@ -479,18 +531,34 @@ const styles = StyleSheet.create({
   },
   passportLabel: {
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 11,
-    color: '#888888',
-    width: 120,
+    fontSize: 15,
+    color: '#ffffff',
+    width: 150,
     padding: 12,
     borderRightWidth: 1,
     borderRightColor: '#ffffff',
   },
   passportValue: {
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 11,
+    fontSize: 15,
     color: '#ffffff',
     flex: 1,
     padding: 12,
+  },
+  generateProofButton: {
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#ffffff',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    alignSelf: 'center',
+    marginTop: 32,
+    marginBottom: 48,
+  },
+  generateProofButtonText: {
+    fontFamily: 'MajorMonoDisplay_400Regular',
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
 });

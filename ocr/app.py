@@ -5,6 +5,7 @@ import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+from web3 import Web3
 
 import google_ocr
 
@@ -12,6 +13,16 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# Minimal ABI for reading AppVerifier requirements
+APP_VERIFIER_ABI = [
+    {"inputs": [], "name": "requireAge",          "outputs": [{"type": "bool"}],    "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "minAge",              "outputs": [{"type": "uint256"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "requireNationality",  "outputs": [{"type": "bool"}],    "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "targetNationality",   "outputs": [{"type": "string"}],  "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "requireSex",          "outputs": [{"type": "bool"}],    "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "targetSex",           "outputs": [{"type": "string"}],  "stateMutability": "view", "type": "function"},
+]
 
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./credentials.json")
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
@@ -173,16 +184,14 @@ CARGO_BIN = os.path.expanduser("~/.cargo/bin/cargo")
 @app.route("/generate-proof", methods=["POST"])
 def generate_proof():
     """
-    Generate a ZK proof from passport data and verification requirements.
+    Generate a ZK proof from passport data and a verifier contract address.
+    Requirements (age, nationality, sex) are read directly from the contract.
 
     Request JSON:
       {
         "passport": { passport data from OCR },
         "walletAddress": "0x...",
-        "verifierAddress": "0x...",
-        "requiredAge": 18,
-        "requiredNationality": "MYS",
-        "requiredSex": "M"
+        "verifierAddress": "0x..."
       }
 
     Response:
@@ -194,13 +203,29 @@ def generate_proof():
 
     passport = body.get("passport")
     wallet_address = body.get("walletAddress")
-    verifier_address = body.get("verifierAddress", "0x" + "0" * 40)
-    required_age = body.get("requiredAge", 0)
-    required_nationality = body.get("requiredNationality", "")
-    required_sex = body.get("requiredSex", "")
+    verifier_address = body.get("verifierAddress")
 
-    if not passport or not wallet_address:
-        return jsonify({"error": "passport and walletAddress are required"}), 400
+    if not passport or not wallet_address or not verifier_address:
+        return jsonify({"error": "passport, walletAddress, and verifierAddress are required"}), 400
+
+    # Read requirements from the AppVerifier contract on Sepolia
+    rpc_url = os.getenv("SEPOLIA_RPC_URL")
+    if not rpc_url:
+        return jsonify({"error": "SEPOLIA_RPC_URL not configured"}), 500
+    try:
+        w3 = Web3(Web3.HTTPProvider(rpc_url))
+        contract = w3.eth.contract(
+            address=Web3.to_checksum_address(verifier_address),
+            abi=APP_VERIFIER_ABI,
+        )
+        require_age         = contract.functions.requireAge().call()
+        require_nationality = contract.functions.requireNationality().call()
+        require_sex         = contract.functions.requireSex().call()
+        required_age         = int(contract.functions.minAge().call())         if require_age         else 0
+        required_nationality = contract.functions.targetNationality().call()   if require_nationality else ""
+        required_sex         = contract.functions.targetSex().call()           if require_sex         else ""
+    except Exception as e:
+        return jsonify({"error": f"Failed to read contract requirements: {str(e)}"}), 500
 
     # 1. Write verification_requirements.json
     reqs = {

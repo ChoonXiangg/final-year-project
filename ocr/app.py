@@ -208,10 +208,15 @@ def generate_proof():
     if not passport or not wallet_address or not verifier_address:
         return jsonify({"error": "passport, walletAddress, and verifierAddress are required"}), 400
 
+    print(f"\n[generate-proof] Request received")
+    print(f"[generate-proof] Wallet:   {wallet_address}")
+    print(f"[generate-proof] Verifier: {verifier_address}")
+
     # Read requirements from the AppVerifier contract on Sepolia
     rpc_url = os.getenv("SEPOLIA_RPC_URL")
     if not rpc_url:
         return jsonify({"error": "SEPOLIA_RPC_URL not configured"}), 500
+    print(f"[generate-proof] Reading contract requirements from Sepolia...")
     try:
         w3 = Web3(Web3.HTTPProvider(rpc_url))
         contract = w3.eth.contract(
@@ -224,7 +229,9 @@ def generate_proof():
         required_age         = int(contract.functions.minAge().call())         if require_age         else 0
         required_nationality = contract.functions.targetNationality().call()   if require_nationality else ""
         required_sex         = contract.functions.targetSex().call()           if require_sex         else ""
+        print(f"[generate-proof] Requirements: age={required_age}, nationality='{required_nationality}', sex='{required_sex}'")
     except Exception as e:
+        print(f"[generate-proof] ERROR reading contract: {e}")
         return jsonify({"error": f"Failed to read contract requirements: {str(e)}"}), 500
 
     # 1. Write verification_requirements.json
@@ -238,6 +245,7 @@ def generate_proof():
     reqs_path = os.path.join(ZKP_DIR, "verification_requirements.json")
     with open(reqs_path, "w") as f:
         json.dump(reqs, f, indent=4)
+    print(f"[generate-proof] Written verification_requirements.json")
 
     # 2. Build passport JSON for stdin (matches PassportInput struct in evm.rs)
     passport_input = {
@@ -252,11 +260,16 @@ def generate_proof():
         "name": passport.get("name", ""),
         "sex": passport.get("sex", ""),
     }
+    print(f"[generate-proof] Passport input: {passport_input}")
 
     # 3. Run cargo run --bin evm with passport JSON piped to stdin
     script_dir = os.path.join(ZKP_DIR, "script")
     env = os.environ.copy()
     env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
+    print(f"[generate-proof] Running cargo in: {script_dir}")
+    print(f"[generate-proof] CARGO_BIN: {CARGO_BIN}")
+    print(f"[generate-proof] SP1_PROVER: {env.get('SP1_PROVER', 'not set')}")
+    print(f"[generate-proof] This may take several minutes...")
 
     try:
         result = subprocess.run(
@@ -268,7 +281,13 @@ def generate_proof():
             env=env,
             timeout=600,
         )
+        print(f"[generate-proof] cargo exited with code: {result.returncode}")
+        if result.stdout:
+            print(f"[generate-proof] stdout:\n{result.stdout}")
+        if result.stderr:
+            print(f"[generate-proof] stderr:\n{result.stderr}")
     except subprocess.TimeoutExpired:
+        print(f"[generate-proof] ERROR: timed out after 600s")
         return jsonify({"error": "Proof generation timed out"}), 504
 
     if result.returncode != 0:

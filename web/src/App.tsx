@@ -19,7 +19,7 @@ const socialItems = [
 
 const FACTORY_ADDRESS = '0x2b3Cedc63952530db65FDCfd48915D33BaDE488a';
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
-const PASSPORT_VKEY = '0x00e73dac84f6c42374ebe6d54e839ed1fb039bbfb193e8daa5542359657a818c';
+const PASSPORT_VKEY = '0x004095ddc3567dbd9d3e6a7c3e685167b7f03cd247ec3ddd2641f4216fe2f105';
 
 const FACTORY_ABI = [
   'function createVerifier(address _sp1Verifier, bytes32 _passportVKey, bool _requireAge, uint256 _minAge, bool _requireNationality, string _targetNationality, bool _requireSex, string _targetSex) external returns (address)',

@@ -63,6 +63,8 @@ export default function App() {
   const [passportData, setPassportData] = useState<Record<string, any> | null>(null);
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const [proofLoading, setProofLoading] = useState(false);
+  const [proofResult, setProofResult] = useState<{ proof: string; publicValues: string; vkey: string } | null>(null);
+  const [proofModalOpen, setProofModalOpen] = useState(false);
   const { address: walletAddress } = useWalletConnectModal();
   const cameraRef = useRef<CameraView>(null);
 
@@ -132,6 +134,11 @@ export default function App() {
             const statusJson = await statusRes.json();
             if (statusJson.status === 'done') {
               clearInterval(interval);
+              setProofResult({
+                proof: statusJson.proof ?? '',
+                publicValues: statusJson.publicValues ?? '',
+                vkey: statusJson.vkey ?? '',
+              });
               resolve();
             } else if (statusJson.status === 'error') {
               clearInterval(interval);
@@ -142,10 +149,10 @@ export default function App() {
             clearInterval(interval);
             reject(e);
           }
-        }, 15000);
+        }, 60000);
       });
 
-      Alert.alert('Success', 'Proof generated successfully!');
+      setProofModalOpen(true);
     } catch (err: any) {
       Alert.alert('Proof generation failed', err.message ?? 'Failed to contact server.');
     } finally {
@@ -378,6 +385,31 @@ export default function App() {
                 <Text style={styles.generateProofButtonText}>{proofLoading ? 'generating...' : 'generate proof'}</Text>
               </TouchableOpacity>
             </>
+          )}
+        </View>
+      </Modal>
+
+      <Modal visible={proofModalOpen} animationType="fade" onRequestClose={() => setProofModalOpen(false)}>
+        <View style={styles.passportModalContainer}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setProofModalOpen(false)} activeOpacity={0.7}>
+            <Text style={styles.closeIcon}>✕</Text>
+          </TouchableOpacity>
+          <Text style={styles.passportModalTitle}>proof</Text>
+          {proofResult && (
+            <ScrollView style={styles.passportScroll} contentContainerStyle={styles.passportScrollContent}>
+              {[
+                ['vkey',          proofResult.vkey],
+                ['public values', proofResult.publicValues],
+                ['proof',         proofResult.proof],
+              ].map(([label, value]) => (
+                <View key={label} style={styles.passportRow}>
+                  <Text style={styles.passportLabel}>{label}</Text>
+                  <Text style={styles.passportValue} numberOfLines={4} ellipsizeMode="middle">
+                    {value}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
           )}
         </View>
       </Modal>

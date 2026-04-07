@@ -107,7 +107,8 @@ export default function App() {
     }
     setProofLoading(true);
     try {
-      const response = await fetch(`${OCR_API_URL}/generate-proof`, {
+      // 1. Submit job
+      const submitRes = await fetch(`${OCR_API_URL}/generate-proof`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,19 +117,37 @@ export default function App() {
           verifierAddress: storedAddress,
         }),
       });
-      const text = await response.text();
-      let json: any;
-      try { json = JSON.parse(text); } catch {
-        Alert.alert('Error', `Invalid server response:\n${text.slice(0, 200)}`);
+      const submitJson = await submitRes.json();
+      if (submitJson.error) {
+        Alert.alert('Error', submitJson.error);
         return;
       }
-      if (json.error) {
-        Alert.alert('Proof generation failed', json.error);
-        return;
-      }
+      const jobId: string = submitJson.jobId;
+
+      // 2. Poll every 15 seconds until done or error
+      await new Promise<void>((resolve, reject) => {
+        const interval = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`${OCR_API_URL}/proof-status/${jobId}`);
+            const statusJson = await statusRes.json();
+            if (statusJson.status === 'done') {
+              clearInterval(interval);
+              resolve();
+            } else if (statusJson.status === 'error') {
+              clearInterval(interval);
+              reject(new Error(statusJson.error ?? 'Proof generation failed'));
+            }
+            // else still pending — keep polling
+          } catch (e) {
+            clearInterval(interval);
+            reject(e);
+          }
+        }, 15000);
+      });
+
       Alert.alert('Success', 'Proof generated successfully!');
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to contact server.');
+      Alert.alert('Proof generation failed', err.message ?? 'Failed to contact server.');
     } finally {
       setProofLoading(false);
     }

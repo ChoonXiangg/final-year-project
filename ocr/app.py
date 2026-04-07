@@ -270,6 +270,7 @@ def generate_proof():
     # toolchain doesn't support as a stable flag. Use a wrapper to strip it.
     wrapper = os.path.join(ZKP_DIR, "scripts", "sp1-rustc-wrapper.sh")
     if os.path.isfile(wrapper):
+        os.chmod(wrapper, 0o755)
         env["RUSTC_WRAPPER"] = wrapper
     print(f"[generate-proof] Running cargo in: {script_dir}")
     print(f"[generate-proof] CARGO_BIN: {CARGO_BIN}")

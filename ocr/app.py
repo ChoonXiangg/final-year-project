@@ -2,6 +2,8 @@ import os
 import json
 import subprocess
 import base64
+import threading
+import uuid
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -180,22 +182,137 @@ def get_passport():
 ZKP_DIR = os.path.join(os.path.dirname(__file__), "..", "zkp")
 CARGO_BIN = os.path.expanduser("~/.cargo/bin/cargo")
 
+# In-memory job store: { job_id: { status, proof, publicValues, vkey, error } }
+_proof_jobs: dict = {}
+_proof_jobs_lock = threading.Lock()
+
+
+def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_address: str):
+    """Run proof generation in a background thread and update _proof_jobs when done."""
+
+    def update(data: dict):
+        with _proof_jobs_lock:
+            _proof_jobs[job_id].update(data)
+
+    print(f"\n[job:{job_id}] Request received")
+    print(f"[job:{job_id}] Wallet:   {wallet_address}")
+    print(f"[job:{job_id}] Verifier: {verifier_address}")
+
+    # Read requirements from the AppVerifier contract on Sepolia
+    rpc_url = os.getenv("SEPOLIA_RPC_URL")
+    if not rpc_url:
+        update({"status": "error", "error": "SEPOLIA_RPC_URL not configured"})
+        return
+    print(f"[job:{job_id}] Reading contract requirements from Sepolia...")
+    try:
+        w3 = Web3(Web3.HTTPProvider(rpc_url))
+        contract = w3.eth.contract(
+            address=Web3.to_checksum_address(verifier_address),
+            abi=APP_VERIFIER_ABI,
+        )
+        require_age         = contract.functions.requireAge().call()
+        require_nationality = contract.functions.requireNationality().call()
+        require_sex         = contract.functions.requireSex().call()
+        required_age         = int(contract.functions.minAge().call())       if require_age         else 0
+        required_nationality = contract.functions.targetNationality().call() if require_nationality else ""
+        required_sex         = contract.functions.targetSex().call()         if require_sex         else ""
+        print(f"[job:{job_id}] Requirements: age={required_age}, nationality='{required_nationality}', sex='{required_sex}'")
+    except Exception as e:
+        print(f"[job:{job_id}] ERROR reading contract: {e}")
+        update({"status": "error", "error": f"Failed to read contract requirements: {e}"})
+        return
+
+    # Write verification_requirements.json
+    reqs = {
+        "walletAddress": wallet_address,
+        "verifierAddress": verifier_address,
+        "requiredAge": required_age,
+        "requiredNationality": required_nationality,
+        "requiredSex": required_sex,
+    }
+    reqs_path = os.path.join(ZKP_DIR, "verification_requirements.json")
+    with open(reqs_path, "w") as f:
+        json.dump(reqs, f, indent=4)
+    print(f"[job:{job_id}] Written verification_requirements.json")
+
+    # Build passport JSON for stdin
+    passport_input = {
+        "documentNumber": passport.get("documentNumber", ""),
+        "birthYear":  passport.get("birthYear", 0),
+        "birthMonth": passport.get("birthMonth", 0),
+        "birthDay":   passport.get("birthDay", 0),
+        "expiryYear":  passport.get("expiryYear", 0),
+        "expiryMonth": passport.get("expiryMonth", 0),
+        "expiryDay":   passport.get("expiryDay", 0),
+        "nationality": passport.get("nationality", ""),
+        "name":        passport.get("name", ""),
+        "sex":         passport.get("sex", ""),
+    }
+    print(f"[job:{job_id}] Passport input: {passport_input}")
+
+    # Run cargo run --bin evm
+    script_dir = os.path.join(ZKP_DIR, "script")
+    env = os.environ.copy()
+    env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
+    wrapper = os.path.join(ZKP_DIR, "scripts", "sp1-rustc-wrapper.sh")
+    if os.path.isfile(wrapper):
+        os.chmod(wrapper, 0o755)
+        env["RUSTC_WRAPPER"] = wrapper
+    print(f"[job:{job_id}] SP1_PROVER: {env.get('SP1_PROVER', 'not set')}")
+    print(f"[job:{job_id}] Running cargo (this may take a long time for cpu prover)...")
+
+    try:
+        result = subprocess.run(
+            [CARGO_BIN, "run", "--release", "--bin", "evm"],
+            input=json.dumps(passport_input),
+            capture_output=True,
+            text=True,
+            cwd=script_dir,
+            env=env,
+            timeout=7200,  # 2-hour hard cap
+        )
+        print(f"[job:{job_id}] cargo exited with code: {result.returncode}")
+        if result.stdout:
+            print(f"[job:{job_id}] stdout:\n{result.stdout}")
+        if result.stderr:
+            print(f"[job:{job_id}] stderr:\n{result.stderr}")
+    except subprocess.TimeoutExpired:
+        print(f"[job:{job_id}] ERROR: timed out after 7200s")
+        update({"status": "error", "error": "Proof generation timed out after 2 hours"})
+        return
+
+    if result.returncode != 0:
+        update({"status": "error", "error": "Proof generation failed", "stderr": result.stderr[-500:]})
+        return
+
+    # Read generated proof
+    proof_path = os.path.join(ZKP_DIR, "proofs", "passport_proof_evm.json")
+    if not os.path.exists(proof_path):
+        update({"status": "error", "error": "Proof file not generated"})
+        return
+
+    with open(proof_path) as f:
+        proof_data = json.load(f)
+
+    print(f"[job:{job_id}] Done!")
+    update({
+        "status": "done",
+        "proof":        proof_data.get("proof", ""),
+        "publicValues": proof_data.get("publicValues", ""),
+        "vkey":         proof_data.get("vkey", ""),
+    })
+
 
 @app.route("/generate-proof", methods=["POST"])
 def generate_proof():
     """
-    Generate a ZK proof from passport data and a verifier contract address.
-    Requirements (age, nationality, sex) are read directly from the contract.
+    Start async proof generation. Returns a job ID immediately.
 
     Request JSON:
-      {
-        "passport": { passport data from OCR },
-        "walletAddress": "0x...",
-        "verifierAddress": "0x..."
-      }
+      { "passport": {...}, "walletAddress": "0x...", "verifierAddress": "0x..." }
 
     Response:
-      { "proof": "0x...", "publicValues": "0x...", "vkey": "0x..." }
+      { "jobId": "<uuid>", "status": "pending" }
     """
     body = request.get_json(silent=True)
     if not body:
@@ -208,113 +325,35 @@ def generate_proof():
     if not passport or not wallet_address or not verifier_address:
         return jsonify({"error": "passport, walletAddress, and verifierAddress are required"}), 400
 
-    print(f"\n[generate-proof] Request received")
-    print(f"[generate-proof] Wallet:   {wallet_address}")
-    print(f"[generate-proof] Verifier: {verifier_address}")
+    job_id = str(uuid.uuid4())
+    with _proof_jobs_lock:
+        _proof_jobs[job_id] = {"status": "pending"}
 
-    # Read requirements from the AppVerifier contract on Sepolia
-    rpc_url = os.getenv("SEPOLIA_RPC_URL")
-    if not rpc_url:
-        return jsonify({"error": "SEPOLIA_RPC_URL not configured"}), 500
-    print(f"[generate-proof] Reading contract requirements from Sepolia...")
-    try:
-        w3 = Web3(Web3.HTTPProvider(rpc_url))
-        contract = w3.eth.contract(
-            address=Web3.to_checksum_address(verifier_address),
-            abi=APP_VERIFIER_ABI,
-        )
-        require_age         = contract.functions.requireAge().call()
-        require_nationality = contract.functions.requireNationality().call()
-        require_sex         = contract.functions.requireSex().call()
-        required_age         = int(contract.functions.minAge().call())         if require_age         else 0
-        required_nationality = contract.functions.targetNationality().call()   if require_nationality else ""
-        required_sex         = contract.functions.targetSex().call()           if require_sex         else ""
-        print(f"[generate-proof] Requirements: age={required_age}, nationality='{required_nationality}', sex='{required_sex}'")
-    except Exception as e:
-        print(f"[generate-proof] ERROR reading contract: {e}")
-        return jsonify({"error": f"Failed to read contract requirements: {str(e)}"}), 500
+    thread = threading.Thread(
+        target=_run_proof_job,
+        args=(job_id, passport, wallet_address, verifier_address),
+        daemon=True,
+    )
+    thread.start()
 
-    # 1. Write verification_requirements.json
-    reqs = {
-        "walletAddress": wallet_address,
-        "verifierAddress": verifier_address,
-        "requiredAge": required_age,
-        "requiredNationality": required_nationality,
-        "requiredSex": required_sex,
-    }
-    reqs_path = os.path.join(ZKP_DIR, "verification_requirements.json")
-    with open(reqs_path, "w") as f:
-        json.dump(reqs, f, indent=4)
-    print(f"[generate-proof] Written verification_requirements.json")
+    print(f"\n[generate-proof] Started job {job_id}")
+    return jsonify({"jobId": job_id, "status": "pending"})
 
-    # 2. Build passport JSON for stdin (matches PassportInput struct in evm.rs)
-    passport_input = {
-        "documentNumber": passport.get("documentNumber", ""),
-        "birthYear": passport.get("birthYear", 0),
-        "birthMonth": passport.get("birthMonth", 0),
-        "birthDay": passport.get("birthDay", 0),
-        "expiryYear": passport.get("expiryYear", 0),
-        "expiryMonth": passport.get("expiryMonth", 0),
-        "expiryDay": passport.get("expiryDay", 0),
-        "nationality": passport.get("nationality", ""),
-        "name": passport.get("name", ""),
-        "sex": passport.get("sex", ""),
-    }
-    print(f"[generate-proof] Passport input: {passport_input}")
 
-    # 3. Run cargo run --bin evm with passport JSON piped to stdin
-    script_dir = os.path.join(ZKP_DIR, "script")
-    env = os.environ.copy()
-    env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
-    # sp1-build 5.x passes --remap-path-scope=object which the SP1 custom rustc
-    # toolchain doesn't support as a stable flag. Use a wrapper to strip it.
-    wrapper = os.path.join(ZKP_DIR, "scripts", "sp1-rustc-wrapper.sh")
-    if os.path.isfile(wrapper):
-        os.chmod(wrapper, 0o755)
-        env["RUSTC_WRAPPER"] = wrapper
-    print(f"[generate-proof] Running cargo in: {script_dir}")
-    print(f"[generate-proof] CARGO_BIN: {CARGO_BIN}")
-    print(f"[generate-proof] SP1_PROVER: {env.get('SP1_PROVER', 'not set')}")
-    print(f"[generate-proof] This may take several minutes...")
+@app.route("/proof-status/<job_id>", methods=["GET"])
+def proof_status(job_id):
+    """
+    Poll for proof generation status.
 
-    try:
-        result = subprocess.run(
-            [CARGO_BIN, "run", "--release", "--bin", "evm"],
-            input=json.dumps(passport_input),
-            capture_output=True,
-            text=True,
-            cwd=script_dir,
-            env=env,
-            timeout=600,
-        )
-        print(f"[generate-proof] cargo exited with code: {result.returncode}")
-        if result.stdout:
-            print(f"[generate-proof] stdout:\n{result.stdout}")
-        if result.stderr:
-            print(f"[generate-proof] stderr:\n{result.stderr}")
-    except subprocess.TimeoutExpired:
-        print(f"[generate-proof] ERROR: timed out after 600s")
-        return jsonify({"error": "Proof generation timed out"}), 504
-
-    if result.returncode != 0:
-        return jsonify({
-            "error": "Proof generation failed",
-            "stderr": result.stderr[-500:] if result.stderr else "",
-        }), 500
-
-    # 4. Read generated proof
-    proof_path = os.path.join(ZKP_DIR, "proofs", "passport_proof_evm.json")
-    if not os.path.exists(proof_path):
-        return jsonify({"error": "Proof file not generated"}), 500
-
-    with open(proof_path) as f:
-        proof_data = json.load(f)
-
-    return jsonify({
-        "proof": proof_data.get("proof", ""),
-        "publicValues": proof_data.get("publicValues", ""),
-        "vkey": proof_data.get("vkey", ""),
-    })
+    Response (pending):  { "status": "pending" }
+    Response (done):     { "status": "done", "proof": "...", "publicValues": "...", "vkey": "..." }
+    Response (error):    { "status": "error", "error": "..." }
+    """
+    with _proof_jobs_lock:
+        job = _proof_jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job)
 
 
 # ---------------------------------------------------------------------------

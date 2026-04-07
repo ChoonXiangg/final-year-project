@@ -2,7 +2,6 @@ use passport_verifier_lib::{Date, PassportAttributes};
 use sp1_sdk::{ProverClient, SP1Stdin, HashableKey};
 use std::time::Instant;
 use passport_verifier_script::utils::*;
-use alloy_sol_types::SolValue;
 use serde::Deserialize;
 
 const PASSPORT_ELF: &[u8] = include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/passport-verifier-program");

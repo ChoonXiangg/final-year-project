@@ -50,9 +50,7 @@ _PNG = _minimal_png()
 _PNG_B64 = _b64(_PNG)
 
 _PASSPORT_DATA = {
-    "surname": "DOE",
-    "givenNames": "JOHN",
-    "fullName": "JOHN DOE",
+    "name": "JOHN DOE",
     "nationality": "GBR",
     "documentNumber": "123456789",
     "dateOfBirth": "850101",
@@ -146,8 +144,7 @@ class TestOCRPassport:
         body = r.get_json()
         assert body["success"] is True
         data = body["data"]
-        assert data["surname"] == "DOE"
-        assert data["givenNames"] == "JOHN"
+        assert data["name"] == "JOHN DOE"
         assert data["nationality"] == "GBR"
         assert data["sex"] == "M"
         assert isinstance(data["age"], int)
@@ -338,9 +335,7 @@ class TestParseMrz:
     def test_valid_mrz_returns_all_fields(self):
         result = google_ocr.parse_mrz(_IRISH_MRZ_TEXT)
         assert result is not None
-        assert result["surname"] == "OSULLIVAN"
-        assert result["givenNames"] == "LAUREN"
-        assert result["fullName"] == "LAUREN OSULLIVAN"
+        assert result["name"] == "LAUREN OSULLIVAN"
         assert result["nationality"] == "IRL"
         assert result["documentNumber"] == "XN5003778"
         assert result["dateOfBirth"] == "880504"

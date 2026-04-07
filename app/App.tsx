@@ -293,9 +293,7 @@ export default function App() {
           {passportData && (
             <ScrollView style={styles.passportScroll} contentContainerStyle={styles.passportScrollContent}>
               {[
-                ['full name',       passportData.fullName],
-                ['surname',         passportData.surname],
-                ['given names',     passportData.givenNames],
+                ['name',            passportData.fullName],
                 ['nationality',     passportData.nationality],
                 ['sex',             passportData.sex],
                 ['age',             passportData.age],

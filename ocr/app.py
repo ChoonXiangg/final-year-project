@@ -108,7 +108,7 @@ def ocr_passport():
         "success": true,
         "text": "<raw OCR text>",
         "data": {
-          "surname": "...", "givenNames": "...", "fullName": "...",
+          "name": "...",
           "nationality": "...", "documentNumber": "...",
           "dateOfBirth": "YYMMDD", "dateOfExpiry": "YYMMDD",
           "sex": "M|F|unspecified", "age": <int>,
@@ -140,8 +140,7 @@ def ocr_passport():
                 "expiryMonth":    passport_data["expiryMonth"],
                 "expiryDay":      passport_data["expiryDay"],
                 "nationality":    passport_data["nationality"],
-                "givenNames":     passport_data["givenNames"],
-                "surname":        passport_data["surname"],
+                "name":           passport_data["name"],
             }
         return jsonify({"success": True, "text": full_text, "data": passport_data, "confidence": confidence})
     except google_ocr.GoogleOCRError as exc:
@@ -225,8 +224,7 @@ def generate_proof():
         "expiryMonth": passport.get("expiryMonth", 0),
         "expiryDay": passport.get("expiryDay", 0),
         "nationality": passport.get("nationality", ""),
-        "givenNames": passport.get("givenNames", ""),
-        "surname": passport.get("surname", ""),
+        "name": passport.get("name", ""),
         "sex": passport.get("sex", ""),
     }
 

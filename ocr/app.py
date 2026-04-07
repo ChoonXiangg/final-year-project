@@ -266,6 +266,11 @@ def generate_proof():
     script_dir = os.path.join(ZKP_DIR, "script")
     env = os.environ.copy()
     env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
+    # sp1-build 5.x passes --remap-path-scope=object which the SP1 custom rustc
+    # toolchain doesn't support as a stable flag. Use a wrapper to strip it.
+    wrapper = os.path.join(ZKP_DIR, "scripts", "sp1-rustc-wrapper.sh")
+    if os.path.isfile(wrapper):
+        env["RUSTC_WRAPPER"] = wrapper
     print(f"[generate-proof] Running cargo in: {script_dir}")
     print(f"[generate-proof] CARGO_BIN: {CARGO_BIN}")
     print(f"[generate-proof] SP1_PROVER: {env.get('SP1_PROVER', 'not set')}")

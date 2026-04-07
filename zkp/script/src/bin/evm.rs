@@ -18,8 +18,7 @@ struct PassportInput {
     expiry_month: u8,
     expiry_day: u8,
     nationality: String,
-    given_names: String,
-    surname: String,
+    name: String,
     sex: String,
 }
 
@@ -68,8 +67,7 @@ fn main() {
             day: passport_input.expiry_day 
         }, 
         nationality: passport_input.nationality,
-        given_names: passport_input.given_names,
-        surname: passport_input.surname,
+        name: passport_input.name,
         sex: passport_input.sex,
     };
 

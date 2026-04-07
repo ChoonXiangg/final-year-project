@@ -18,8 +18,7 @@ pub struct PassportAttributes {
     pub date_of_birth: Date,
     pub date_of_expiry: Date,
     pub nationality: String,
-    pub given_names: String,
-    pub surname: String,
+    pub name: String,
     pub sex: String,
 }
 
@@ -58,8 +57,7 @@ pub fn derive_identity_commitment(passport: &PassportAttributes) -> [u8; 32] {
     use sha2::{Sha256, Digest};
 
     let mut hasher = Sha256::new();
-    hasher.update(passport.given_names.as_bytes());
-    hasher.update(passport.surname.as_bytes());
+    hasher.update(passport.name.as_bytes());
     hasher.update(passport.nationality.as_bytes());
     hasher.update(&passport.date_of_birth.year.to_le_bytes());
     hasher.update(&[passport.date_of_birth.month]);

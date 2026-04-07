@@ -261,9 +261,7 @@ def parse_mrz(text: str) -> dict | None:
     exp_parts = _yymmdd_to_parts(date_of_expiry)
 
     return {
-        "surname": surname,
-        "givenNames": given_names,
-        "fullName": full_name,
+        "name": full_name,
         "nationality": nationality,
         "documentNumber": document_number,
         "dateOfBirth": date_of_birth,

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './index.css';
 import App from './App';
 import DeployedContracts from './DeployedContracts';
+import Verify from './Verify';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(
@@ -15,6 +16,7 @@ root.render(
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/deployed" element={<DeployedContracts />} />
+        <Route path="/verify" element={<Verify />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import { WalletConnectModal, useWalletConnectModal } from '@walletconnect/modal-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { Interface } from 'ethers';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -65,7 +66,7 @@ export default function App() {
   const [proofLoading, setProofLoading] = useState(false);
   const [proofResult, setProofResult] = useState<{ proof: string; publicValues: string; vkey: string } | null>(null);
   const [proofModalOpen, setProofModalOpen] = useState(false);
-  const { address: walletAddress } = useWalletConnectModal();
+  const { address: walletAddress, provider: wcProvider } = useWalletConnectModal();
   const cameraRef = useRef<CameraView>(null);
 
   // Overlay dimensions (in screen points, computed from camera view layout)
@@ -126,7 +127,8 @@ export default function App() {
       }
       const jobId: string = submitJson.jobId;
 
-      // 2. Poll every 15 seconds until done or error
+      // 2. Poll every 60 seconds until done or error
+      let completedProof: { proof: string; publicValues: string; vkey: string } | null = null;
       await new Promise<void>((resolve, reject) => {
         const interval = setInterval(async () => {
           try {
@@ -134,11 +136,12 @@ export default function App() {
             const statusJson = await statusRes.json();
             if (statusJson.status === 'done') {
               clearInterval(interval);
-              setProofResult({
+              completedProof = {
                 proof: statusJson.proof ?? '',
                 publicValues: statusJson.publicValues ?? '',
                 vkey: statusJson.vkey ?? '',
-              });
+              };
+              setProofResult(completedProof);
               resolve();
             } else if (statusJson.status === 'error') {
               clearInterval(interval);
@@ -150,6 +153,19 @@ export default function App() {
             reject(e);
           }
         }, 60000);
+      });
+
+      // Call verifyClaim() on the AppVerifier contract
+      const result = completedProof ?? { proof: '', publicValues: '', vkey: '' };
+      const iface = new Interface(['function verifyClaim(bytes calldata publicValues, bytes calldata proofBytes) external']);
+      const calldata = iface.encodeFunctionData('verifyClaim', [
+        '0x' + result.publicValues.replace(/^0x/, ''),
+        '0x' + result.proof.replace(/^0x/, ''),
+      ]);
+
+      await wcProvider?.request({
+        method: 'eth_sendTransaction',
+        params: [{ from: walletAddress, to: storedAddress, data: calldata }],
       });
 
       setProofModalOpen(true);

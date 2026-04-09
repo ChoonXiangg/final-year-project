@@ -47,7 +47,7 @@ async function main() {
         decodeHex
     );
     console.log("\nProof claims:");
-    console.log("  identityCommitment:", decoded[0]);
+    console.log("  identityHash      :", decoded[0]);
     console.log("  walletAddress     :", decoded[1]);
     console.log("  verifierAddress   :", decoded[2]);
     console.log("  isOverMinAge      :", decoded[3]);
@@ -156,7 +156,7 @@ async function main() {
         for (const ev of appEvents) {
             if (ev.name === "ClaimVerified") {
                 console.log("\nClaimVerified event:");
-                console.log("  identityCommitment:", ev.args.identityCommitment);
+                console.log("  identityHash      :", ev.args.identityHash);
                 console.log("  wallet            :", ev.args.wallet);
                 console.log("  verifierAddress   :", ev.args.verifierAddress);
                 console.log("  timestamp         :", ev.args.timestamp.toString());

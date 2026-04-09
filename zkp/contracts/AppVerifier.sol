@@ -59,7 +59,7 @@ contract AppVerifier {
     error RequirementNotMet();
 
     event ClaimVerified(
-        bytes32 indexed identityCommitment,
+        bytes32 indexed identityHash,
         address indexed wallet,
         address indexed verifierAddress,
         uint256 timestamp
@@ -88,7 +88,7 @@ contract AppVerifier {
             }
 
             (
-                bytes32 identityCommitment,
+                bytes32 identityHash,
                 address walletAddress,
                 address verifierAddress,
                 bool isOverMinAge,
@@ -123,11 +123,11 @@ contract AppVerifier {
             }
 
             // 7. Register identity in global registry (or verify wallet matches)
-            registry.registerOrVerify(identityCommitment, walletAddress);
+            registry.registerOrVerify(identityHash, walletAddress);
 
             // 8. Store verification result and emit event
             verified[walletAddress] = true;
-            emit ClaimVerified(identityCommitment, walletAddress, verifierAddress, timestamp);
+            emit ClaimVerified(identityHash, walletAddress, verifierAddress, timestamp);
 
         } catch {
             revert InvalidProof();

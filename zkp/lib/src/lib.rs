@@ -26,7 +26,7 @@ pub struct PassportAttributes {
 
 sol! {
     struct PassportVerificationOutput {
-        bytes32 identity_commitment;
+        bytes32 identity_hash;
         address wallet_address;
         address verifier_address;
         bool is_over_min_age;
@@ -51,9 +51,9 @@ pub fn calculate_age(birth: &Date, current: &Date) -> u16 {
     age
 }
 
-// Create a deterministic commitment from passport attributes.
-// Uses name + nationality + date of birth so the commitment survives passport renewal.
-pub fn derive_identity_commitment(passport: &PassportAttributes) -> [u8; 32] {
+// Create a deterministic identity hash from passport attributes.
+// Uses name + nationality + date of birth so the hash survives passport renewal.
+pub fn derive_identity_hash(passport: &PassportAttributes) -> [u8; 32] {
     use sha2::{Sha256, Digest};
 
     let mut hasher = Sha256::new();

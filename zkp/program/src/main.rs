@@ -27,12 +27,12 @@ pub fn main() {
     // 3. Verify Sex
     let is_sex_match = passport.sex == target_sex;
 
-    // 4. Create Identity Commitment
-    let identity_commitment = derive_identity_commitment(&passport);
+    // 4. Create Identity Hash
+    let identity_hash = derive_identity_hash(&passport);
 
     // Prepare and commit public output
     let output = PassportVerificationOutput {
-        identity_commitment: identity_commitment.into(),
+        identity_hash: identity_hash.into(),
         wallet_address: wallet_address.into(),
         verifier_address: verifier_address.into(),
         is_over_min_age,

@@ -75,7 +75,7 @@ function printDecoded(decoded) {
     console.log(`1. Signature Valid?      : ${decoded[0]} (bool)`);
     console.log(`2. Over Minimum Age?     : ${decoded[1]} (bool)`);
     console.log(`3. Nationality Matches?  : ${decoded[2]} (bool)`);
-    console.log(`4. Identity Commitment   : ${decoded[3]} (bytes32)`);
+    console.log(`4. Identity Hash         : ${decoded[3]} (bytes32)`);
     console.log(`5. Bound Wallet Address  : ${decoded[4]} (address)`);
     console.log(`6. Minimum Age Checked   : ${decoded[5]} (uint256)`);
     console.log(`7. Target Nationality    : "${decoded[6]}" (string)`);

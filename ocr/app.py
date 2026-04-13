@@ -3,6 +3,7 @@ import json
 import subprocess
 import base64
 import threading
+import time
 import uuid
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -14,7 +15,10 @@ import google_ocr
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+CORS(app, origins=_allowed_origins if _allowed_origins else [])
 
 # Minimal ABI for reading AppVerifier requirements
 APP_VERIFIER_ABI = [
@@ -31,6 +35,7 @@ GOOGLE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
 
 # In-memory store for the most recently scanned passport (ZK-proof subset of fields).
 _latest_passport: dict | None = None
+_latest_passport_lock = threading.Lock()
 
 
 def _google_configured() -> tuple[bool, str]:
@@ -140,11 +145,10 @@ def ocr_passport():
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
-    global _latest_passport
     try:
         passport_data, full_text, confidence = google_ocr.analyze_passport_image(image_bytes)
         if passport_data:
-            _latest_passport = {
+            entry = {
                 "documentNumber": passport_data["documentNumber"],
                 "birthYear":      passport_data["birthYear"],
                 "birthMonth":     passport_data["birthMonth"],
@@ -155,6 +159,9 @@ def ocr_passport():
                 "nationality":    passport_data["nationality"],
                 "name":           passport_data["name"],
             }
+            with _latest_passport_lock:
+                global _latest_passport
+                _latest_passport = entry
         return jsonify({"success": True, "text": full_text, "data": passport_data, "confidence": confidence})
     except google_ocr.GoogleOCRError as exc:
         return jsonify({"success": False, "error": str(exc)}), exc.http_status
@@ -174,17 +181,33 @@ def get_passport():
     Response (no scan yet):
       404 {"success": false, "error": "No passport scanned yet."}
     """
-    if _latest_passport is None:
+    with _latest_passport_lock:
+        snapshot = _latest_passport
+    if snapshot is None:
         return jsonify({"success": False, "error": "No passport scanned yet."}), 404
-    return jsonify(_latest_passport)
+    return jsonify(snapshot)
 
 
 ZKP_DIR = os.path.join(os.path.dirname(__file__), "..", "zkp")
 CARGO_BIN = os.path.expanduser("~/.cargo/bin/cargo")
 
-# In-memory job store: { job_id: { status, proof, publicValues, vkey, error } }
+# In-memory job store: { job_id: { status, created_at, proof, publicValues, vkey, error } }
 _proof_jobs: dict = {}
 _proof_jobs_lock = threading.Lock()
+
+# Jobs older than this are pruned regardless of status (covers stuck/pending jobs)
+_JOB_TTL_SECONDS = 3 * 60 * 60  # 3 hours
+
+
+def _prune_expired_jobs():
+    """Remove jobs that have exceeded the TTL. Called before creating each new job."""
+    cutoff = time.monotonic() - _JOB_TTL_SECONDS
+    with _proof_jobs_lock:
+        expired = [jid for jid, job in _proof_jobs.items() if job.get("created_at", 0) < cutoff]
+        for jid in expired:
+            del _proof_jobs[jid]
+    if expired:
+        print(f"[jobs] Pruned {len(expired)} expired job(s): {expired}")
 
 
 def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_address: str):
@@ -326,9 +349,11 @@ def generate_proof():
     if not passport or not wallet_address or not verifier_address:
         return jsonify({"error": "passport, walletAddress, and verifierAddress are required"}), 400
 
+    _prune_expired_jobs()
+
     job_id = str(uuid.uuid4())
     with _proof_jobs_lock:
-        _proof_jobs[job_id] = {"status": "pending"}
+        _proof_jobs[job_id] = {"status": "pending", "created_at": time.monotonic()}
 
     thread = threading.Thread(
         target=_run_proof_job,
@@ -352,9 +377,11 @@ def proof_status(job_id):
     """
     with _proof_jobs_lock:
         job = _proof_jobs.get(job_id)
+        if job and job.get("status") in ("done", "error"):
+            del _proof_jobs[job_id]
     if not job:
         return jsonify({"error": "Job not found"}), 404
-    return jsonify(job)
+    return jsonify({k: v for k, v in job.items() if k != "created_at"})
 
 
 # ---------------------------------------------------------------------------

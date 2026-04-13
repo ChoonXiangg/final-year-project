@@ -3,7 +3,7 @@ import { BrowserProvider, Contract } from 'ethers';
 import { useWallet } from './WalletContext';
 import AnimatedList from './components/AnimatedList';
 import { getCountryName } from './data/countries';
-import Layout, { MONO } from './Layout';
+import Layout, { MONO, ensureSepoliaNetwork } from './Layout';
 
 const FACTORY_ADDRESS = '0x7F58017ADd6CBA1cC1378A9215a3390552ab49Ce';
 const FACTORY_ABI = [
@@ -54,26 +54,7 @@ function DeployedContracts() {
     setLoading(true);
     setFetchError(null);
     try {
-      const chainId = await ethereum.request({ method: 'eth_chainId' });
-      if (chainId !== '0xaa36a7') {
-        try {
-          await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xaa36a7' }] });
-        } catch (switchErr: any) {
-          if (switchErr.code === 4902) {
-            await ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0xaa36a7',
-                chainName: 'Sepolia',
-                rpcUrls: ['https://rpc.sepolia.org'],
-                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-              }],
-            });
-          } else {
-            throw new Error('Please switch to the Sepolia test network');
-          }
-        }
-      }
+      await ensureSepoliaNetwork();
       const provider = new BrowserProvider(ethereum);
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
       const verifierAddresses: string[] = await factory.getVerifiers(address);

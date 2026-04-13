@@ -3,7 +3,7 @@ import { BrowserProvider, Contract } from 'ethers';
 import { useWallet } from './WalletContext';
 import GlareHover from './components/GlareHover';
 import { COUNTRIES } from './data/countries';
-import Layout, { MONO } from './Layout';
+import Layout, { MONO, ensureSepoliaNetwork } from './Layout';
 
 const FACTORY_ADDRESS = '0x7F58017ADd6CBA1cC1378A9215a3390552ab49Ce';
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
@@ -58,32 +58,8 @@ function App() {
     setError(null);
     setDeployedAddress(null);
     try {
-      const ethereum = (window as any).ethereum;
-      const chainId = await ethereum.request({ method: 'eth_chainId' });
-      if (chainId !== '0xaa36a7') {
-        try {
-          await ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa36a7' }],
-          });
-        } catch (switchErr: any) {
-          if (switchErr.code === 4902) {
-            await ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0xaa36a7',
-                chainName: 'Sepolia',
-                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                rpcUrls: ['https://rpc.sepolia.org'],
-                blockExplorerUrls: ['https://sepolia.etherscan.io'],
-              }],
-            });
-          } else {
-            throw switchErr;
-          }
-        }
-      }
-      const provider = new BrowserProvider(ethereum);
+      await ensureSepoliaNetwork();
+      const provider = new BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
       const tx = await factory.createVerifier(

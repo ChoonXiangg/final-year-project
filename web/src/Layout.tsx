@@ -63,9 +63,7 @@ export default function Layout({ subtitle, children, onDisconnect }: LayoutProps
   };
 
   return (
-    <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Major+Mono+Display&display=swap');`}</style>
-      <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative', overflow: 'hidden' }}>
         <StaggeredMenu
           position="left"
           items={menuItems}
@@ -189,7 +187,6 @@ export default function Layout({ subtitle, children, onDisconnect }: LayoutProps
             )}
           </button>
         </GlareHover>
-      </div>
-    </>
+    </div>
   );
 }

@@ -43,7 +43,6 @@ contract VerifierFactory {
             _targetSex
         );
 
-        // Auto-register the new verifier in the registry
         registry.addVerifier(address(verifier));
 
         _verifiersByOwner[msg.sender].push(address(verifier));

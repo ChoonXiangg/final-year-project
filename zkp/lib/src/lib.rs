@@ -1,9 +1,6 @@
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
 
-// DATA STRUCTURES
-
-// Represents a date (year, month, day)
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Date {
     pub year: u16,
@@ -11,7 +8,6 @@ pub struct Date {
     pub day: u8,
 }
 
-// Passport attributes (Machine Readable Zone fields)
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PassportAttributes {
     pub document_number: String,
@@ -21,8 +17,6 @@ pub struct PassportAttributes {
     pub name: String,
     pub sex: String,
 }
-
-// SOLIDITY-COMPATIBLE OUTPUT STRUCTS
 
 sol! {
     struct PassportVerificationOutput {
@@ -39,25 +33,19 @@ sol! {
     }
 }
 
-// Returns true if the passport expiry date is on or after the current date
 pub fn is_passport_valid(expiry: &Date, current: &Date) -> bool {
     (expiry.year, expiry.month, expiry.day) >= (current.year, current.month, current.day)
 }
 
-// Calculate age in years given birthdate and current date
 pub fn calculate_age(birth: &Date, current: &Date) -> u16 {
     let mut age = current.year - birth.year;
-    
-    // Adjust if birthday hasn't occurred yet this year
     if current.month < birth.month || (current.month == birth.month && current.day < birth.day) {
         age -= 1;
     }
-    
     age
 }
 
-// Create a deterministic identity hash from passport attributes.
-// Uses name + nationality + date of birth so the hash survives passport renewal.
+// Hashes name + nationality + date of birth so the identity survives passport renewal.
 pub fn derive_identity_hash(passport: &PassportAttributes) -> [u8; 32] {
     use sha2::{Sha256, Digest};
 
@@ -74,7 +62,6 @@ pub fn derive_identity_hash(passport: &PassportAttributes) -> [u8; 32] {
     commitment
 }
 
-// Helper to convert Unix timestamp to Date
 pub fn timestamp_to_date(timestamp: u64) -> Date {
     use chrono::{DateTime, Datelike};
     let dt = DateTime::from_timestamp(timestamp as i64, 0)

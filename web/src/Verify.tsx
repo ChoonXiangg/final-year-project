@@ -193,7 +193,7 @@ function Verify() {
           glareColor="#ffffff"
           glareOpacity={1}
           glareAngle={-30}
-          glareSize={300}
+          glareSize={200}
           transitionDuration={800}
           style={{ display: 'inline-grid', marginTop: '1rem' }}
         >

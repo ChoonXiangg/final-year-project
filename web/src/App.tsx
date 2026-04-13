@@ -164,8 +164,8 @@ function App() {
             glareColor="#ffffff"
             glareOpacity={1}
             glareAngle={-30}
-            glareSize={500}
-            transitionDuration={2000}
+            glareSize={200}
+            transitionDuration={800}
             style={{ display: 'inline-grid', opacity: deploying || !walletAddress || (!ageOn && !nationalityOn && !genderOn) ? 0.5 : 1 }}
           >
             <button

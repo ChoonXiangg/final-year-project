@@ -37,7 +37,6 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
 
     setProofLoading(true);
     try {
-      // 1. Submit job
       const submitRes = await fetch(`${OCR_API_URL}/generate-proof`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -50,7 +49,6 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
       }
       const jobId: string = submitJson.jobId;
 
-      // 2. Poll every 60 seconds until done, error, or timeout
       let completedProof: ProofResult | null = null;
       await new Promise<void>((resolve, reject) => {
         const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -76,7 +74,7 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
               clearInterval(interval);
               reject(new Error(statusJson.error ?? 'Proof generation failed'));
             }
-            // else still pending — keep polling
+            // still pending — keep polling
           } catch (e) {
             clearInterval(interval);
             reject(e);
@@ -84,7 +82,6 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
         }, POLL_INTERVAL_MS);
       });
 
-      // 3. Send verifyClaim transaction
       const result = completedProof ?? { proof: '', publicValues: '', vkey: '' };
       const iface = new Interface(['function verifyClaim(bytes calldata publicValues, bytes calldata proofBytes) external']);
       const calldata = iface.encodeFunctionData('verifyClaim', [

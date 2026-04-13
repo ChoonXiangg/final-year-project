@@ -32,7 +32,6 @@ APP_VERIFIER_ABI = [
 
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./credentials.json")
 
-# In-memory store for the most recently scanned passport (ZK-proof subset of fields).
 _latest_passport: dict | None = None
 _latest_passport_lock = threading.Lock()
 
@@ -220,7 +219,6 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
     print(f"[job:{job_id}] Wallet:   {wallet_address}")
     print(f"[job:{job_id}] Verifier: {verifier_address}")
 
-    # Read requirements from the AppVerifier contract on Sepolia
     rpc_url = os.getenv("SEPOLIA_RPC_URL")
     if not rpc_url:
         update({"status": "error", "error": "SEPOLIA_RPC_URL not configured"})
@@ -244,7 +242,6 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
         update({"status": "error", "error": f"Failed to read contract requirements: {e}"})
         return
 
-    # Write verification_requirements.json
     reqs = {
         "walletAddress": wallet_address,
         "verifierAddress": verifier_address,
@@ -257,7 +254,6 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
         json.dump(reqs, f, indent=4)
     print(f"[job:{job_id}] Written verification_requirements.json")
 
-    # Build passport JSON for stdin
     passport_input = {
         "documentNumber": passport.get("documentNumber", ""),
         "birthYear":  passport.get("birthYear", 0),
@@ -272,7 +268,6 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
     }
     print(f"[job:{job_id}] Passport input: {passport_input}")
 
-    # Run cargo run --bin evm
     script_dir = os.path.join(ZKP_DIR, "script")
     env = os.environ.copy()
     env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
@@ -316,6 +311,7 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
 
     with open(proof_path) as f:
         proof_data = json.load(f)
+
 
     print(f"[job:{job_id}] Done!")
     update({

@@ -32,7 +32,6 @@ struct VerificationRequirements {
 }
 
 fn main() {
-    // Enable verbose logging (debug level)
     std::env::set_var("RUST_LOG", "debug");
     sp1_sdk::utils::setup_logger();
     dotenv::dotenv().ok();
@@ -40,8 +39,6 @@ fn main() {
     print_banner();
     print_step("Initializing SP1 Prover (EVM Mode)...");
 
-    // Passport data is read from stdin (piped from the OCR service):
-    //   curl -s http://localhost:5000/passport | cargo run --bin evm
     let passport_input: PassportInput = serde_json::from_reader(std::io::stdin())
         .expect("Failed to parse passport JSON from stdin");
 
@@ -52,7 +49,6 @@ fn main() {
     print_info("Document", &passport_input.document_number);
     print_info("Binding To", &reqs.wallet_address);
 
-    // Setup inputs
     let passport = PassportAttributes {
         document_number: passport_input.document_number,
         date_of_birth: Date {
@@ -95,13 +91,10 @@ fn main() {
 
     print_step("Generating EVM Proof (Groth16)...");
     let start = Instant::now();
-    
-    // Generate proof - Force Groth16 for Sepolia
     let proof = client.prove(&pk, &stdin).groth16().run().expect("Groth16 proof failed");
 
     print_success(&format!("Proof generated in {:.2?}", start.elapsed()));
 
-    // Save proof to root/proofs — filename is unique per job to avoid concurrent overwrites
     let proof_dir = "../proofs";
     std::fs::create_dir_all(proof_dir).unwrap();
 

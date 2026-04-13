@@ -24,10 +24,6 @@ from vision_client import (  # noqa: E402
 )
 
 
-# ---------------------------------------------------------------------------
-# Credentials validation (used by /health)
-# ---------------------------------------------------------------------------
-
 def validate_credentials(path: str) -> tuple[bool, str]:
     """
     Check that the credentials JSON file exists and has the expected structure.
@@ -52,10 +48,6 @@ def validate_credentials(path: str) -> tuple[bool, str]:
 
     return True, "OK"
 
-
-# ---------------------------------------------------------------------------
-# Text extraction
-# ---------------------------------------------------------------------------
 
 def extract_text_from_image(image_bytes: bytes) -> tuple[str, list[str]]:
     """
@@ -82,7 +74,6 @@ def _extract_mrz_confidence(response: vision.AnnotateImageResponse, mrz_text: st
     if not response.full_text_annotation.pages:
         return {"overall": None, "mrz_line1": None, "mrz_line2": None}
 
-    # Collect all (char, confidence) pairs in document order
     symbol_data: list[tuple[str, float]] = []
     for page in response.full_text_annotation.pages:
         for block in page.blocks:
@@ -91,10 +82,8 @@ def _extract_mrz_confidence(response: vision.AnnotateImageResponse, mrz_text: st
                     for symbol in word.symbols:
                         symbol_data.append((symbol.text, symbol.confidence))
 
-    # Rebuild full text from symbols to align with mrz positions
     symbol_text = "".join(ch for ch, _ in symbol_data)
 
-    # Find confidence for each MRZ line by locating it in the symbol stream
     def _line_confidence(line: str) -> float | None:
         idx = symbol_text.find(line)
         if idx == -1:
@@ -113,10 +102,6 @@ def _extract_mrz_confidence(response: vision.AnnotateImageResponse, mrz_text: st
 
     return {"overall": overall, "mrz_line1": line1_conf, "mrz_line2": line2_conf}
 
-
-# ---------------------------------------------------------------------------
-# MRZ parsing
-# ---------------------------------------------------------------------------
 
 def _check_digit(text: str) -> int:
     """Compute the ICAO MRZ check digit for a string."""
@@ -160,7 +145,7 @@ def _find_mrz_lines(text: str) -> tuple[str, str] | None:
 
     # Find first pair where line 1 starts with 'P' (TD-3 passport)
     for i in range(len(candidates) - 1):
-        if candidates[i].startswith("P"):
+        if candidates[i].startswith("P"):  # TD-3 passport MRZ starts with P
             return candidates[i], candidates[i + 1]
 
     return None
@@ -246,12 +231,10 @@ def parse_mrz(text: str) -> dict | None:
 
     line1, line2 = mrz
 
-    # --- Line 1 ---
     issuing_country = line1[2:5].replace("<", "")
     surname, given_names = _parse_names(line1[5:44])
     full_name = f"{given_names} {surname}".strip() if given_names else surname
 
-    # --- Line 2 ---
     document_number = line2[0:9].replace("<", "")
     nationality = line2[10:13].replace("<", "")
     date_of_birth = line2[13:19]
@@ -282,10 +265,6 @@ def parse_mrz(text: str) -> dict | None:
     }
 
 
-# ---------------------------------------------------------------------------
-# Image preprocessing
-# ---------------------------------------------------------------------------
-
 def _preprocess_for_mrz(image_bytes: bytes) -> bytes:
     """
     Crop to the MRZ strip (bottom 20 % of the image), convert to greyscale,
@@ -309,10 +288,6 @@ def _preprocess_for_mrz(image_bytes: bytes) -> bytes:
     return buf.getvalue()
 
 
-# ---------------------------------------------------------------------------
-# High-level API (used by Flask endpoints)
-# ---------------------------------------------------------------------------
-
 def analyze_passport_image(image_bytes: bytes) -> tuple[dict | None, str, dict]:
     """
     Extract structured passport data and confidence scores from image bytes.
@@ -334,9 +309,8 @@ def analyze_passport_image(image_bytes: bytes) -> tuple[dict | None, str, dict]:
 
     Raises:  GoogleOCRError (or a subclass) on API failure.
     """
-    # Pass 1: preprocessed MRZ zone
-    # language_hints=["und"] disables language-specific character priors so
-    # Vision does not bias OCR-B glyphs toward any natural-language alphabet.
+    # language_hints=["und"] disables language-specific character priors so Vision
+    # doesn't bias OCR-B glyphs toward any natural-language alphabet.
     _mrz_context = vision.ImageContext(language_hints=["und"])
     try:
         preprocessed = _preprocess_for_mrz(image_bytes)
@@ -347,11 +321,10 @@ def analyze_passport_image(image_bytes: bytes) -> tuple[dict | None, str, dict]:
             confidence = _extract_mrz_confidence(response, full_text)
             return passport_data, full_text, confidence
     except GoogleOCRError:
-        raise  # quota / auth / service errors must not be swallowed
+        raise
     except Exception:
-        pass   # PIL failure or unexpected error → fall through
+        pass  # PIL failure or unexpected error → fall through to full image
 
-    # Pass 2: full image fallback
     response = _call_vision_api(image_bytes)
     full_text = response.full_text_annotation.text if response.full_text_annotation else ""
     passport_data = parse_mrz(full_text)

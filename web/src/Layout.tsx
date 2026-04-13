@@ -145,8 +145,8 @@ export default function Layout({ subtitle, children, onDisconnect }: LayoutProps
           glareColor="#ffffff"
           glareOpacity={1}
           glareAngle={-30}
-          glareSize={500}
-          transitionDuration={2000}
+          glareSize={200}
+          transitionDuration={800}
           style={{ position: 'absolute', top: '2rem', right: '2rem', zIndex: 1, display: 'inline-grid' }}
         >
           <button

@@ -16,6 +16,7 @@ code {
 
 
 /* GlareHover utility classes */
+.relative { position: relative; }
 .grid { display: grid; }
 .place-items-center { place-items: center; }
 .overflow-hidden { overflow: hidden; }

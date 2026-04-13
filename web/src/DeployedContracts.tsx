@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
 import { useWallet } from './WalletContext';
 import AnimatedList from './components/AnimatedList';
@@ -39,6 +39,36 @@ function formatRequirements(c: ContractData): string {
 
 function formatTimestamp(ts: number): string {
   return new Date(ts * 1000).toLocaleString();
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [text]);
+
+  return (
+    <span
+      onClick={handleCopy}
+      title={copied ? 'Copied!' : 'Copy address'}
+      style={{ color: copied ? '#4ade80' : '#fff', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', marginLeft: '0.4rem' }}
+    >
+      {copied ? (
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </span>
+  );
 }
 
 function DeployedContracts() {
@@ -141,7 +171,9 @@ function DeployedContracts() {
               const c = contracts[index];
               return (
                 <div style={{ ...MONO, fontSize: '1rem', color: '#fff' }}>
-                  <p style={{ margin: '0 0 0.25rem 0' }}>Contract address: {c.address}</p>
+                  <p style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center' }}>
+                    Contract address: {c.address}<CopyButton text={c.address} />
+                  </p>
                   <p style={{ margin: '0 0 0.25rem 0' }}>Requirements: {formatRequirements(c)}</p>
                   <p style={{ margin: 0 }}>Timestamp: {formatTimestamp(c.timestamp)}</p>
                 </div>

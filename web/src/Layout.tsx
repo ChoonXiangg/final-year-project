@@ -19,6 +19,31 @@ const socialItems = [
 
 export const MONO: React.CSSProperties = { fontFamily: "'Major Mono Display', monospace", fontWeight: 'bold' };
 
+export async function ensureSepoliaNetwork(): Promise<void> {
+  const ethereum = (window as any).ethereum;
+  if (!ethereum) throw new Error('MetaMask is not installed');
+  const chainId = await ethereum.request({ method: 'eth_chainId' });
+  if (chainId === '0xaa36a7') return;
+  try {
+    await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xaa36a7' }] });
+  } catch (switchErr: any) {
+    if (switchErr.code === 4902) {
+      await ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: '0xaa36a7',
+          chainName: 'Sepolia',
+          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+          rpcUrls: ['https://rpc.sepolia.org'],
+          blockExplorerUrls: ['https://sepolia.etherscan.io'],
+        }],
+      });
+    } else {
+      throw new Error('Please switch to the Sepolia test network');
+    }
+  }
+}
+
 interface LayoutProps {
   subtitle: string;
   children: React.ReactNode;

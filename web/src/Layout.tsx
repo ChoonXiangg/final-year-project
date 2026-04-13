@@ -17,6 +17,8 @@ const socialItems = [
   { label: 'Docs', link: '#' },
 ];
 
+export const FACTORY_ADDRESS = '0x7F58017ADd6CBA1cC1378A9215a3390552ab49Ce';
+
 export const MONO: React.CSSProperties = { fontFamily: "'Major Mono Display', monospace", fontWeight: 'bold' };
 
 export async function ensureSepoliaNetwork(): Promise<void> {

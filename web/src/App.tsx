@@ -3,9 +3,8 @@ import { BrowserProvider, Contract } from 'ethers';
 import { useWallet } from './WalletContext';
 import GlareHover from './components/GlareHover';
 import { COUNTRIES } from './data/countries';
-import Layout, { MONO, ensureSepoliaNetwork } from './Layout';
+import Layout, { MONO, ensureSepoliaNetwork, FACTORY_ADDRESS } from './Layout';
 
-const FACTORY_ADDRESS = '0x7F58017ADd6CBA1cC1378A9215a3390552ab49Ce';
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
 const PASSPORT_VKEY = '0x00930f8b802c260e02f8e400fa7470cfaa4e1a04d51a7840e2f18ebe8d564cdc';
 

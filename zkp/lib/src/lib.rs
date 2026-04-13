@@ -39,6 +39,11 @@ sol! {
     }
 }
 
+// Returns true if the passport expiry date is on or after the current date
+pub fn is_passport_valid(expiry: &Date, current: &Date) -> bool {
+    (expiry.year, expiry.month, expiry.day) >= (current.year, current.month, current.day)
+}
+
 // Calculate age in years given birthdate and current date
 pub fn calculate_age(birth: &Date, current: &Date) -> u16 {
     let mut age = current.year - birth.year;
@@ -69,13 +74,14 @@ pub fn derive_identity_hash(passport: &PassportAttributes) -> [u8; 32] {
     commitment
 }
 
-// Helper to convert timestamp to Date
+// Helper to convert Unix timestamp to Date
 pub fn timestamp_to_date(timestamp: u64) -> Date {
-    // Simplified conversion
-    let year = 1970 + (timestamp / 31536000) as u16;
-    let remainder = timestamp % 31536000;
-    let month = 1 + (remainder / 2628000) as u8; // Approx
-    let day = 1 + ((remainder % 2628000) / 86400) as u8; // Approx
-    
-    Date { year, month, day }
+    use chrono::{DateTime, Datelike};
+    let dt = DateTime::from_timestamp(timestamp as i64, 0)
+        .expect("invalid timestamp");
+    Date {
+        year: dt.year() as u16,
+        month: dt.month() as u8,
+        day: dt.day() as u8,
+    }
 }

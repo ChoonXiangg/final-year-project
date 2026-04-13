@@ -3876,6 +3876,7 @@ name = "passport-verifier-lib"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
+ "chrono",
  "serde",
  "sha2",
 ]

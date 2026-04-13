@@ -101,19 +101,25 @@ fn main() {
 
     print_success(&format!("Proof generated in {:.2?}", start.elapsed()));
 
-    // Save proof to root/proofs
+    // Save proof to root/proofs — filename is unique per job to avoid concurrent overwrites
     let proof_dir = "../proofs";
     std::fs::create_dir_all(proof_dir).unwrap();
-    
+
+    let job_id = std::env::var("PROOF_JOB_ID").unwrap_or_else(|_| "default".to_string());
+    let proof_filename = format!("passport_proof_evm_{}.json", job_id);
+
     let proof_bytes = proof.bytes();
     let public_values = proof.public_values.as_slice();
-    
+
     let proof_data = serde_json::json!({
         "proof": hex::encode(&proof_bytes),
         "publicValues": hex::encode(public_values),
         "vkey": vk.bytes32()
     });
-    std::fs::write(format!("{}/passport_proof_evm.json", proof_dir), serde_json::to_string_pretty(&proof_data).unwrap()).unwrap();
-    
-    print_success(&format!("Proof saved to {}/passport_proof_evm.json", proof_dir));
+    std::fs::write(
+        format!("{}/{}", proof_dir, proof_filename),
+        serde_json::to_string_pretty(&proof_data).unwrap(),
+    ).unwrap();
+
+    print_success(&format!("Proof saved to {}/{}", proof_dir, proof_filename));
 }

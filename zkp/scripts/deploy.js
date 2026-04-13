@@ -7,16 +7,19 @@ async function main() {
 
   const SP1_VERIFIER_SEPOLIA = "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B";
 
-  // Read vkey from the existing proof file
+  // Read vkey from proof file, or fall back to vkey_hash.txt
+  let passportVKey;
   const proofPath = path.join(__dirname, "../proofs/passport_proof_evm.json");
-  if (!fs.existsSync(proofPath)) {
-    console.error("proofs/passport_proof_evm.json not found!");
-    console.error("Please generate a proof first.");
+  const vkeyHashPath = path.join(__dirname, "../script/vkey_hash.txt");
+  if (fs.existsSync(proofPath)) {
+    const proofData = JSON.parse(fs.readFileSync(proofPath, "utf8"));
+    passportVKey = proofData.vkey;
+  } else if (fs.existsSync(vkeyHashPath)) {
+    passportVKey = fs.readFileSync(vkeyHashPath, "utf8").trim();
+  } else {
+    console.error("No vkey source found. Run `cargo run --release --bin vkey` in zkp/script first.");
     process.exit(1);
   }
-
-  const proofData = JSON.parse(fs.readFileSync(proofPath, "utf8"));
-  const passportVKey = proofData.vkey;
   console.log("Passport VKey:", passportVKey);
 
   // 1. Deploy PassportRegistry

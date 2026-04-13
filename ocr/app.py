@@ -254,6 +254,7 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
     script_dir = os.path.join(ZKP_DIR, "script")
     env = os.environ.copy()
     env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + os.path.expanduser("~/.sp1/bin") + ":" + env.get("PATH", "")
+    env["PROOF_JOB_ID"] = job_id
     wrapper = os.path.join(ZKP_DIR, "scripts", "sp1-rustc-wrapper.sh")
     if os.path.isfile(wrapper):
         os.chmod(wrapper, 0o755)
@@ -285,8 +286,8 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
         update({"status": "error", "error": "Proof generation failed", "stderr": result.stderr[-500:]})
         return
 
-    # Read generated proof
-    proof_path = os.path.join(ZKP_DIR, "proofs", "passport_proof_evm.json")
+    # Read generated proof (filename is unique per job)
+    proof_path = os.path.join(ZKP_DIR, "proofs", f"passport_proof_evm_{job_id}.json")
     if not os.path.exists(proof_path):
         update({"status": "error", "error": "Proof file not generated"})
         return

@@ -16,8 +16,14 @@ pub fn main() {
     let target_nationality = sp1_zkvm::io::read::<String>();
     let target_sex = sp1_zkvm::io::read::<String>();
 
-    // 1. Verify Age
+    // 0. Reject expired passports — no proof can be generated for an expired document
     let current_date = timestamp_to_date(current_timestamp);
+    assert!(
+        is_passport_valid(&passport.date_of_expiry, &current_date),
+        "passport is expired"
+    );
+
+    // 1. Verify Age
     let age = calculate_age(&passport.date_of_birth, &current_date);
     let is_over_min_age = age >= min_age;
 

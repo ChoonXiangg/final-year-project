@@ -11,11 +11,13 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/deployed" element={<DeployedContracts />} />
-        <Route path="/verify" element={<Verify />} />
-      </Routes>
+      <WalletProvider>
+        <Routes>
+          <Route path="/" element={<App />} />
+          <Route path="/deployed" element={<DeployedContracts />} />
+          <Route path="/verify" element={<Verify />} />
+        </Routes>
+      </WalletProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

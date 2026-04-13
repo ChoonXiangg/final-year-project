@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BrowserProvider, Contract, Interface, AbiCoder, JsonRpcProvider, hexlify } from 'ethers';
+import { Contract, Interface, AbiCoder, JsonRpcProvider, hexlify, BrowserProvider } from 'ethers';
+import { useWallet } from './WalletContext';
 import PixelBlast from './components/PixelBlast';
 import GlareHover from './components/GlareHover';
 import GlitchText from './components/GlitchText';
@@ -54,8 +55,7 @@ interface ProofDetails {
 
 function Verify() {
   const navigate = useNavigate();
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
+  const { walletAddress, connecting, connectWallet, disconnectWallet } = useWallet();
   const [copied, setCopied] = useState(false);
 
   const [userWallet, setUserWallet] = useState('');
@@ -63,22 +63,6 @@ function Verify() {
   const [loading, setLoading] = useState(false);
   const [proofDetails, setProofDetails] = useState<ProofDetails | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const connectWallet = async () => {
-    if (!(window as any).ethereum) { alert('MetaMask is not installed'); return; }
-    setConnecting(true);
-    try {
-      const provider = new BrowserProvider((window as any).ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
-      setWalletAddress(accounts[0]);
-    } catch (err: any) {
-      console.error('Wallet connection failed:', err);
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const disconnectWallet = () => setWalletAddress(null);
 
   const handleViewProofDetails = async () => {
     if (!userWallet || !contractAddr) return;

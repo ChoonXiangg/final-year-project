@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BrowserProvider, Contract } from 'ethers';
+import { useWallet } from './WalletContext';
 import PixelBlast from './components/PixelBlast';
 import GlareHover from './components/GlareHover';
 import GlitchText from './components/GlitchText';
@@ -18,9 +19,9 @@ const socialItems = [
   { label: 'Docs', link: '#' },
 ];
 
-const FACTORY_ADDRESS = '0x2b3Cedc63952530db65FDCfd48915D33BaDE488a';
+const FACTORY_ADDRESS = '0x7F58017ADd6CBA1cC1378A9215a3390552ab49Ce';
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
-const PASSPORT_VKEY = '0x004095ddc3567dbd9d3e6a7c3e685167b7f03cd247ec3ddd2641f4216fe2f105';
+const PASSPORT_VKEY = '0x00930f8b802c260e02f8e400fa7470cfaa4e1a04d51a7840e2f18ebe8d564cdc';
 
 const FACTORY_ABI = [
   'function createVerifier(address _sp1Verifier, bytes32 _passportVKey, bool _requireAge, uint256 _minAge, bool _requireNationality, string _targetNationality, bool _requireSex, string _targetSex) external returns (address)',
@@ -60,31 +61,14 @@ function App() {
     backgroundSize: '1.5rem',
     paddingRight: '3rem',
   };
+  const { walletAddress, connecting, connectWallet, disconnectWallet: ctxDisconnect } = useWallet();
   const [deploying, setDeploying] = useState(false);
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
   const [copied, setCopied] = useState(false);
-  const connectWallet = async () => {
-    if (!(window as any).ethereum) {
-      alert('MetaMask is not installed');
-      return;
-    }
-    setConnecting(true);
-    try {
-      const provider = new BrowserProvider((window as any).ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
-      setWalletAddress(accounts[0]);
-    } catch (err: any) {
-      console.error('Wallet connection failed:', err);
-    } finally {
-      setConnecting(false);
-    }
-  };
 
   const disconnectWallet = () => {
-    setWalletAddress(null);
+    ctxDisconnect();
     setDeployedAddress(null);
     setError(null);
   };

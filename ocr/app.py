@@ -31,7 +31,6 @@ APP_VERIFIER_ABI = [
 ]
 
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./credentials.json")
-GOOGLE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
 
 # In-memory store for the most recently scanned passport (ZK-proof subset of fields).
 _latest_passport: dict | None = None
@@ -83,7 +82,7 @@ def health():
         "google_configured": valid,
         "credentials_message": message,
         "credentials_file": GOOGLE_CREDENTIALS_PATH,
-        "project_id": GOOGLE_PROJECT_ID,
+
     })
 
 
@@ -395,8 +394,7 @@ if __name__ == "__main__":
         print("See .env.example for setup instructions.")
     else:
         print(f"Google Cloud credentials OK ({GOOGLE_CREDENTIALS_PATH})")
-        if GOOGLE_PROJECT_ID:
-            print(f"Project ID: {GOOGLE_PROJECT_ID}")
+    
 
     port = int(os.getenv("FLASK_PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"

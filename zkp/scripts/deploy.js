@@ -51,6 +51,19 @@ async function main() {
   console.log("SP1 Verifier    :", SP1_VERIFIER_SEPOLIA);
   console.log("Passport VKey   :", passportVKey);
   console.log("\nApps can now call VerifierFactory.createVerifier() to deploy their own AppVerifier.");
+
+  // Save addresses to deployment.json
+  const deployment = {
+    network: hre.network.name,
+    deployedAt: new Date().toISOString(),
+    PassportRegistry: registryAddress,
+    VerifierFactory: factoryAddress,
+    SP1Verifier: SP1_VERIFIER_SEPOLIA,
+    passportVKey,
+  };
+  const deploymentPath = path.join(__dirname, "../deployment.json");
+  fs.writeFileSync(deploymentPath, JSON.stringify(deployment, null, 2));
+  console.log("\nAddresses saved to deployment.json");
 }
 
 main()

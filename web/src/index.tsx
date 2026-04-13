@@ -5,6 +5,8 @@ import './index.css';
 import App from './App';
 import DeployedContracts from './DeployedContracts';
 import Verify from './Verify';
+import { WalletProvider } from './WalletContext';
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

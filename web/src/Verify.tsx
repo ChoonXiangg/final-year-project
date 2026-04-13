@@ -3,7 +3,7 @@ import { Contract, Interface, AbiCoder, JsonRpcProvider, hexlify, BrowserProvide
 import GlareHover from './components/GlareHover';
 import Layout, { MONO } from './Layout';
 
-const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
+const SEPOLIA_RPC = process.env.REACT_APP_ALCHEMY_RPC_URL ?? 'https://ethereum-sepolia-rpc.publicnode.com';
 
 const APP_VERIFIER_ABI = [
   'function isVerified(address wallet) view returns (bool)',

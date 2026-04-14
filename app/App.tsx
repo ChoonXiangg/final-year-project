@@ -9,6 +9,7 @@ import WalletButton from './components/WalletButton';
 import CameraModal from './components/CameraModal';
 import PassportModal from './components/PassportModal';
 import ProofModal from './components/ProofModal';
+import QRScanModal from './components/QRScanModal';
 import { useProofGeneration } from './hooks/useProofGeneration';
 
 SplashScreen.preventAutoHideAsync();
@@ -33,11 +34,12 @@ export default function App() {
   const [contractAddress, setContractAddress] = useState('');
   const [storedAddress, setStoredAddress] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [qrScanOpen, setQrScanOpen] = useState(false);
   const [passportData, setPassportData] = useState<Record<string, any> | null>(null);
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const { address: walletAddress, provider: wcProvider } = useWalletConnectModal();
 
-  const { generateProof, proofLoading, proofResult, proofModalOpen, setProofModalOpen } =
+  const { generateProof, proofLoading, proofResult, proofModalOpen, setProofModalOpen, submitProof, submitting } =
     useProofGeneration({ passportData, walletAddress, storedAddress, wcProvider });
 
   useEffect(() => {
@@ -46,12 +48,7 @@ export default function App() {
 
   if (!fontsLoaded) return null;
 
-  const handleEnter = async () => {
-    const addr = contractAddress.trim();
-    if (!addr) {
-      Alert.alert('Missing address', 'Please enter a verifier contract address.');
-      return;
-    }
+  const handleEnterWithAddress = async (addr: string) => {
     if (!isAddress(addr)) {
       Alert.alert('Invalid address', 'That does not look like a valid Ethereum address.');
       return;
@@ -68,6 +65,15 @@ export default function App() {
     setCameraOpen(true);
   };
 
+  const handleEnter = async () => {
+    const addr = contractAddress.trim();
+    if (!addr) {
+      Alert.alert('Missing address', 'Please enter a verifier contract address.');
+      return;
+    }
+    await handleEnterWithAddress(addr);
+  };
+
   return (
     <View style={styles.container}>
       <WalletButton />
@@ -82,10 +88,24 @@ export default function App() {
           autoCapitalize="none"
           autoCorrect={false}
         />
+        <TouchableOpacity style={styles.qrButton} activeOpacity={0.7} onPress={() => setQrScanOpen(true)}>
+          <Text style={styles.contractButtonText}>qr</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.contractButton} activeOpacity={0.7} onPress={handleEnter}>
           <Text style={styles.contractButtonText}>enter</Text>
         </TouchableOpacity>
       </View>
+
+      <QRScanModal
+        visible={qrScanOpen}
+        onClose={() => setQrScanOpen(false)}
+        onAddressScanned={(address) => {
+          setContractAddress(address);
+          setQrScanOpen(false);
+          // validate and proceed directly — no need to tap enter after scanning
+          setTimeout(() => handleEnterWithAddress(address), 0);
+        }}
+      />
 
       <CameraModal
         visible={cameraOpen}
@@ -105,6 +125,8 @@ export default function App() {
         visible={proofModalOpen}
         proofResult={proofResult}
         onClose={() => setProofModalOpen(false)}
+        onSubmit={() => proofResult && submitProof(proofResult)}
+        submitting={submitting}
       />
 
       <StatusBar style="light" />
@@ -144,6 +166,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     paddingVertical: 10,
     paddingHorizontal: 14,
+  },
+  qrButton: {
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#ffffff',
+    borderLeftWidth: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   contractButton: {
     backgroundColor: '#000000',

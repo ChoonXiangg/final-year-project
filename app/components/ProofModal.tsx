@@ -10,9 +10,11 @@ interface Props {
   visible: boolean;
   proofResult: ProofResult | null;
   onClose: () => void;
+  onSubmit: () => void;
+  submitting: boolean;
 }
 
-export default function ProofModal({ visible, proofResult, onClose }: Props) {
+export default function ProofModal({ visible, proofResult, onClose, onSubmit, submitting }: Props) {
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.container}>
@@ -21,20 +23,32 @@ export default function ProofModal({ visible, proofResult, onClose }: Props) {
         </TouchableOpacity>
         <Text style={styles.title}>proof</Text>
         {proofResult && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            {[
-              ['vkey',          proofResult.vkey],
-              ['public values', proofResult.publicValues],
-              ['proof',         proofResult.proof],
-            ].map(([label, value]) => (
-              <View key={label} style={styles.row}>
-                <Text style={styles.label}>{label}</Text>
-                <Text style={styles.value} numberOfLines={4} ellipsizeMode="middle">
-                  {value}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
+          <>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+              {[
+                ['vkey',          proofResult.vkey],
+                ['public values', proofResult.publicValues],
+                ['proof',         proofResult.proof],
+              ].map(([label, value]) => (
+                <View key={label} style={styles.row}>
+                  <Text style={styles.label}>{label}</Text>
+                  <Text style={styles.value} numberOfLines={4} ellipsizeMode="middle">
+                    {value}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.submitButton, submitting && { opacity: 0.5 }]}
+              activeOpacity={0.7}
+              onPress={onSubmit}
+              disabled={submitting}
+            >
+              <Text style={styles.submitButtonText}>
+                {submitting ? 'submitting...' : 'submit on-chain'}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </Modal>
@@ -97,5 +111,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     flex: 1,
     padding: 12,
+  },
+  submitButton: {
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#ffffff',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    alignSelf: 'center',
+    marginTop: 32,
+    marginBottom: 48,
+  },
+  submitButtonText: {
+    fontFamily: 'MajorMonoDisplay_400Regular',
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
 });

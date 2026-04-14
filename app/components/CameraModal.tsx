@@ -174,6 +174,8 @@ export default function CameraModal({ visible, onClose, onPassportScanned }: Pro
             <Text style={styles.closeIcon}>✕</Text>
           </TouchableOpacity>
 
+          <Text style={styles.hint}>scan your passport</Text>
+
           <TouchableOpacity style={styles.captureButton} activeOpacity={0.8} onPress={handleCapture}>
             <View style={styles.captureButtonInner} />
           </TouchableOpacity>
@@ -204,6 +206,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#ffffff',
     fontWeight: '300',
+  },
+  hint: {
+    position: 'absolute',
+    top: 140,
+    alignSelf: 'center',
+    fontFamily: 'MajorMonoDisplay_400Regular',
+    fontSize: 20,
+    color: '#ffffff',
+    letterSpacing: 1,
   },
   captureButton: {
     position: 'absolute',

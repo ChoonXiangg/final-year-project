@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
+import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from './WalletContext';
 import AnimatedList from './components/AnimatedList';
 import { getCountryName } from './data/countries';
@@ -41,6 +42,38 @@ function formatTimestamp(ts: number): string {
   return new Date(ts * 1000).toLocaleString();
 }
 
+function QRModal({ address, onClose }: { address: string; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: '#000', border: '1px solid #fff', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}
+      >
+        <p style={{ color: '#fff', ...MONO, fontSize: '0.85rem', margin: 0, wordBreak: 'break-all', maxWidth: '256px', textAlign: 'center' }}>
+          {address}
+        </p>
+        <QRCodeSVG value={address} size={256} bgColor="#000000" fgColor="#ffffff" />
+        <p style={{ color: '#888', ...MONO, fontSize: '0.75rem', margin: 0 }}>
+          scan with the mobile app
+        </p>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: '1px solid #fff', color: '#fff', ...MONO, fontSize: '0.85rem', padding: '0.5rem 1.5rem', cursor: 'pointer' }}
+        >
+          close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -76,6 +109,7 @@ function DeployedContracts() {
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [qrAddress, setQrAddress] = useState<string | null>(null);
 
   const fetchContracts = async (address: string) => {
     const ethereum = (window as any).ethereum;
@@ -130,6 +164,7 @@ function DeployedContracts() {
       subtitle="Select your app requirements and deploy your verifier contract"
       onDisconnect={() => { setContracts([]); setFetchError(null); }}
     >
+      {qrAddress && <QRModal address={qrAddress} onClose={() => setQrAddress(null)} />}
       <div
         style={{
           position: 'absolute',
@@ -172,7 +207,18 @@ function DeployedContracts() {
               return (
                 <div style={{ ...MONO, fontSize: '1rem', color: '#fff' }}>
                   <p style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center' }}>
-                    Contract address: {c.address}<CopyButton text={c.address} />
+                    Contract address: {c.address}
+                    <CopyButton text={c.address} />
+                    <span
+                      onClick={e => { e.stopPropagation(); setQrAddress(c.address); }}
+                      title="Show QR code"
+                      style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', marginLeft: '0.4rem', color: '#fff' }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                        <path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3" />
+                      </svg>
+                    </span>
                   </p>
                   <p style={{ margin: '0 0 0.25rem 0' }}>Requirements: {formatRequirements(c)}</p>
                   <p style={{ margin: 0 }}>Timestamp: {formatTimestamp(c.timestamp)}</p>

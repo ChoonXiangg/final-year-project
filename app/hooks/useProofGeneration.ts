@@ -23,6 +23,7 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
   const [proofLoading, setProofLoading] = useState(false);
   const [proofResult, setProofResult] = useState<ProofResult | null>(null);
   const [proofModalOpen, setProofModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const generateProof = async () => {
     if (!passportData) return;
@@ -49,7 +50,6 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
       }
       const jobId: string = submitJson.jobId;
 
-      let completedProof: ProofResult | null = null;
       await new Promise<void>((resolve, reject) => {
         const deadline = Date.now() + POLL_TIMEOUT_MS;
         const interval = setInterval(async () => {
@@ -63,12 +63,12 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
             const statusJson = await statusRes.json();
             if (statusJson.status === 'done') {
               clearInterval(interval);
-              completedProof = {
-                proof: statusJson.proof ?? '',
-                publicValues: statusJson.publicValues ?? '',
-                vkey: statusJson.vkey ?? '',
-              };
-              setProofResult(completedProof);
+              const { proof, publicValues, vkey } = statusJson;
+              if (!proof || !publicValues || !vkey) {
+                reject(new Error('Server returned incomplete proof data.'));
+                return;
+              }
+              setProofResult({ proof, publicValues, vkey });
               resolve();
             } else if (statusJson.status === 'error') {
               clearInterval(interval);
@@ -82,25 +82,39 @@ export function useProofGeneration({ passportData, walletAddress, storedAddress,
         }, POLL_INTERVAL_MS);
       });
 
-      const result = completedProof ?? { proof: '', publicValues: '', vkey: '' };
-      const iface = new Interface(['function verifyClaim(bytes calldata publicValues, bytes calldata proofBytes) external']);
-      const calldata = iface.encodeFunctionData('verifyClaim', [
-        '0x' + result.publicValues.replace(/^0x/, ''),
-        '0x' + result.proof.replace(/^0x/, ''),
-      ]);
-
-      await wcProvider?.request({
-        method: 'eth_sendTransaction',
-        params: [{ from: walletAddress, to: storedAddress, data: calldata }],
-      });
-
       setProofModalOpen(true);
     } catch (err: any) {
-      Alert.alert('Proof generation failed', err.message ?? 'Failed to contact server.');
+      Alert.alert('Error', err.message ?? 'Failed to contact server.');
     } finally {
       setProofLoading(false);
     }
   };
 
-  return { generateProof, proofLoading, proofResult, proofModalOpen, setProofModalOpen };
+  const submitProof = async (proof: ProofResult) => {
+    if (!walletAddress || !storedAddress) return;
+
+    setSubmitting(true);
+    try {
+      const iface = new Interface(['function verifyClaim(bytes calldata publicValues, bytes calldata proofBytes) external']);
+      const calldata = iface.encodeFunctionData('verifyClaim', [
+        '0x' + proof.publicValues.replace(/^0x/, ''),
+        '0x' + proof.proof.replace(/^0x/, ''),
+      ]);
+
+      const txHash = await wcProvider?.request({
+        method: 'eth_sendTransaction',
+        params: [{ from: walletAddress, to: storedAddress, data: calldata }],
+      });
+
+      if (!txHash) throw new Error('Wallet did not return a transaction hash.');
+
+      Alert.alert('Success', 'Verification submitted on-chain.');
+    } catch (err: any) {
+      Alert.alert('Transaction failed', err.message ?? 'Failed to submit transaction.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return { generateProof, proofLoading, proofResult, proofModalOpen, setProofModalOpen, submitProof, submitting };
 }

@@ -1,25 +1,64 @@
 import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 
+interface ProofResult {
+  proof: string;
+  publicValues: string;
+  vkey: string;
+}
+
 interface Props {
   visible: boolean;
   passportData: Record<string, any> | null;
+  proofResult: ProofResult | null;
   onClose: () => void;
   onGenerateProof: () => void;
   proofLoading: boolean;
+  onSubmit: () => void;
+  submitting: boolean;
 }
 
-export default function PassportModal({ visible, passportData, onClose, onGenerateProof, proofLoading }: Props) {
+export default function PassportModal({ visible, passportData, proofResult, onClose, onGenerateProof, proofLoading, onSubmit, submitting }: Props) {
+  const showProof = proofResult !== null;
+
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.container}>
         <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>passport data</Text>
-        {passportData && (
+        <Text style={styles.title}>{showProof ? 'proof' : 'passport data'}</Text>
+
+        {showProof ? (
           <>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-              {[
+              {([
+                ['proof',         proofResult.proof],
+                ['public values', proofResult.publicValues],
+                ['vkey',          proofResult.vkey],
+              ] as [string, string][]).map(([label, value]) => (
+                <View key={label} style={styles.row}>
+                  <Text style={styles.label}>{label}</Text>
+                  {label === 'public values' ? (
+                    <Text style={styles.value}>{value}</Text>
+                  ) : (
+                    <Text style={styles.value} numberOfLines={4} ellipsizeMode="middle">{value}</Text>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.actionButton, submitting && { opacity: 0.5 }]}
+              activeOpacity={0.7}
+              onPress={onSubmit}
+              disabled={submitting}
+            >
+              <Text style={styles.actionButtonText}>{submitting ? 'submitting...' : 'submit on-chain'}</Text>
+            </TouchableOpacity>
+          </>
+        ) : passportData ? (
+          <>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+              {([
                 ['document no.',    passportData.documentNumber],
                 ['name',            passportData.name],
                 ['nationality',     passportData.nationality],
@@ -28,23 +67,23 @@ export default function PassportModal({ visible, passportData, onClose, onGenera
                 ['identity no.',    passportData.personalNumber],
                 ['date of expiry',  passportData.dateOfExpiry],
                 ['issuing country', passportData.issuingCountry],
-              ].filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => (
-                <View key={label as string} style={styles.row}>
-                  <Text style={styles.label}>{label as string}</Text>
+              ] as [string, any][]).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => (
+                <View key={label} style={styles.row}>
+                  <Text style={styles.label}>{label}</Text>
                   <Text style={styles.value}>{String(value)}</Text>
                 </View>
               ))}
             </ScrollView>
             <TouchableOpacity
-              style={[styles.generateButton, proofLoading && { opacity: 0.5 }]}
+              style={[styles.actionButton, proofLoading && { opacity: 0.5 }]}
               activeOpacity={0.7}
               onPress={onGenerateProof}
               disabled={proofLoading}
             >
-              <Text style={styles.generateButtonText}>{proofLoading ? 'generating...' : 'generate proof'}</Text>
+              <Text style={styles.actionButtonText}>{proofLoading ? 'generating...' : 'generate proof'}</Text>
             </TouchableOpacity>
           </>
-        )}
+        ) : null}
       </View>
     </Modal>
   );
@@ -73,10 +112,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 20,
+    fontSize: 22,
     color: '#ffffff',
     letterSpacing: 2,
-    marginBottom: 32,
+    marginBottom: 20,
     textAlign: 'center',
   },
   scroll: {
@@ -93,7 +132,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 15,
+    fontSize: 12,
     color: '#ffffff',
     width: 150,
     padding: 12,
@@ -102,12 +141,12 @@ const styles = StyleSheet.create({
   },
   value: {
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 15,
+    fontSize: 12,
     color: '#ffffff',
     flex: 1,
     padding: 12,
   },
-  generateButton: {
+  actionButton: {
     backgroundColor: '#000000',
     borderWidth: 1,
     borderColor: '#ffffff',
@@ -117,7 +156,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
     marginBottom: 48,
   },
-  generateButtonText: {
+  actionButtonText: {
     fontFamily: 'MajorMonoDisplay_400Regular',
     fontSize: 12,
     color: '#ffffff',

@@ -41,10 +41,11 @@ export default function QRScanModal({ visible, onClose, onAddressScanned }: Prop
         />
 
         <View style={styles.overlay} pointerEvents="none">
-          <View style={styles.cutout} />
+          <View style={styles.boxWrapper}>
+            <Text style={styles.hint}>scan app contract qr</Text>
+            <View style={styles.cutout} />
+          </View>
         </View>
-
-        <Text style={styles.hint}>point at the contract qr code</Text>
 
         <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
           <Text style={styles.closeIcon}>✕</Text>
@@ -54,7 +55,7 @@ export default function QRScanModal({ visible, onClose, onAddressScanned }: Prop
   );
 }
 
-const CUTOUT = 240;
+const CUTOUT = 250;
 
 const styles = StyleSheet.create({
   container: {
@@ -79,14 +80,15 @@ const styles = StyleSheet.create({
     // punch a transparent hole through the dim overlay
     shadowColor: 'transparent',
   },
+  boxWrapper: {
+    alignItems: 'center',
+  },
   hint: {
-    position: 'absolute',
-    bottom: 100,
-    alignSelf: 'center',
     fontFamily: 'MajorMonoDisplay_400Regular',
     fontSize: 12,
     color: '#ffffff',
     letterSpacing: 1,
+    marginBottom: 20,
   },
   closeButton: {
     position: 'absolute',

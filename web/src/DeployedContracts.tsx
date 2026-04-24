@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { BrowserProvider, Contract } from 'ethers';
+import { useState, useCallback } from 'react';
+import { BrowserProvider, Contract, JsonRpcProvider } from 'ethers';
 import { QRCodeSVG } from 'qrcode.react';
-import { useWallet } from './WalletContext';
 import AnimatedList from './components/AnimatedList';
+import GlareHover from './components/GlareHover';
 import { getCountryName } from './data/countries';
-import Layout, { MONO, ensureSepoliaNetwork, FACTORY_ADDRESS } from './Layout';
+import Layout, { MONO, FACTORY_ADDRESS } from './Layout';
+
+const SEPOLIA_RPC = process.env.REACT_APP_ALCHEMY_RPC_URL ?? 'https://ethereum-sepolia-rpc.publicnode.com';
 
 const FACTORY_ABI = [
   'function getVerifiers(address owner) external view returns (address[])'
@@ -54,21 +56,19 @@ function QRModal({ address, onClose }: { address: string; onClose: () => void })
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: '#000', border: '1px solid #fff', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}
+        style={{ background: '#000', border: '1px solid #fff', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', position: 'relative' }}
       >
-        <p style={{ color: '#fff', ...MONO, fontSize: '0.85rem', margin: 0, wordBreak: 'break-all', maxWidth: '256px', textAlign: 'center' }}>
-          {address}
-        </p>
-        <QRCodeSVG value={address} size={256} bgColor="#000000" fgColor="#ffffff" />
-        <p style={{ color: '#888', ...MONO, fontSize: '0.75rem', margin: 0 }}>
-          scan with the mobile app
-        </p>
         <button
           onClick={onClose}
-          style={{ background: 'none', border: '1px solid #fff', color: '#fff', ...MONO, fontSize: '0.85rem', padding: '0.5rem 1.5rem', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '1.25rem' }}
+          aria-label="Close"
         >
-          close
+          ✕
         </button>
+        <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
+          scan with the mobile app
+        </p>
+        <QRCodeSVG value={address} size={500} bgColor="#000000" fgColor="#ffffff" />
       </div>
     </div>
   );
@@ -105,22 +105,25 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function DeployedContracts() {
-  const { walletAddress } = useWallet();
+  const [walletInput, setWalletInput] = useState('');
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetched, setFetched] = useState(false);
   const [qrAddress, setQrAddress] = useState<string | null>(null);
 
-  const fetchContracts = async (address: string) => {
-    const ethereum = (window as any).ethereum;
-    if (!ethereum) return;
+  const handleView = async () => {
+    if (!walletInput) return;
     setLoading(true);
     setFetchError(null);
+    setContracts([]);
+    setFetched(false);
     try {
-      await ensureSepoliaNetwork();
-      const provider = new BrowserProvider(ethereum);
+      const provider = (window as any).ethereum
+        ? new BrowserProvider((window as any).ethereum)
+        : new JsonRpcProvider(SEPOLIA_RPC);
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
-      const verifierAddresses: string[] = await factory.getVerifiers(address);
+      const verifierAddresses: string[] = await factory.getVerifiers(walletInput);
       const data: ContractData[] = await Promise.all(
         verifierAddresses.map(async (addr) => {
           const verifier = new Contract(addr, APP_VERIFIER_ABI, provider);
@@ -147,6 +150,7 @@ function DeployedContracts() {
         })
       );
       setContracts(data.reverse());
+      setFetched(true);
     } catch (err: any) {
       console.error('Failed to fetch contracts:', err);
       setFetchError(err?.message ?? 'Failed to fetch contracts');
@@ -155,15 +159,20 @@ function DeployedContracts() {
     }
   };
 
-  useEffect(() => {
-    if (walletAddress) fetchContracts(walletAddress);
-  }, [walletAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  const INPUT_STYLE: React.CSSProperties = {
+    width: '100%',
+    background: '#000',
+    border: '1px solid #fff',
+    color: '#fff',
+    ...MONO,
+    fontSize: '1rem',
+    padding: '0.75rem',
+    boxSizing: 'border-box',
+    outline: 'none',
+  };
 
   return (
-    <Layout
-      subtitle="Select your app requirements and deploy your verifier contract"
-      onDisconnect={() => { setContracts([]); setFetchError(null); }}
-    >
+    <Layout subtitle="View verifier contracts deployed by a wallet address">
       {qrAddress && <QRModal address={qrAddress} onClose={() => setQrAddress(null)} />}
       <div
         style={{
@@ -178,54 +187,86 @@ function DeployedContracts() {
         }}
       >
         <h2 style={{ color: '#fff', ...MONO, fontSize: '2rem', margin: '0 0 1rem 0' }}>
-          <span style={{ background: '#000', padding: '0.25rem 0' }}>Deployed Contracts</span>
+          <span style={{ background: '#000', padding: '0.25rem 0' }}>Wallet Address</span>
         </h2>
-        {!walletAddress ? (
-          <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
-            <span style={{ background: '#000', padding: '0.25rem 0' }}>Connect your wallet to view your deployed contracts</span>
-          </p>
-        ) : loading ? (
-          <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
-            <span style={{ background: '#000', padding: '0.25rem 0' }}>Loading...</span>
-          </p>
-        ) : fetchError ? (
-          <p style={{ color: '#f66', ...MONO, fontSize: '1rem', margin: 0 }}>
-            <span style={{ background: '#000', padding: '0.25rem 0' }}>Error: {fetchError}</span>
-          </p>
-        ) : contracts.length === 0 ? (
-          <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
-            <span style={{ background: '#000', padding: '0.25rem 0' }}>No deployed contracts found</span>
-          </p>
-        ) : (
-          <AnimatedList
-            items={contracts.map(c => c.address)}
-            showGradients
-            enableArrowNavigation
-            displayScrollbar
-            renderItem={(_, index) => {
-              const c = contracts[index];
-              return (
-                <div style={{ ...MONO, fontSize: '1rem', color: '#fff' }}>
-                  <p style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center' }}>
-                    Contract address: {c.address}
-                    <CopyButton text={c.address} />
-                    <span
-                      onClick={e => { e.stopPropagation(); setQrAddress(c.address); }}
-                      title="Show QR code"
-                      style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', marginLeft: '0.4rem', color: '#fff' }}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-                        <path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3" />
-                      </svg>
-                    </span>
-                  </p>
-                  <p style={{ margin: '0 0 0.25rem 0' }}>Requirements: {formatRequirements(c)}</p>
-                  <p style={{ margin: 0 }}>Timestamp: {formatTimestamp(c.timestamp)}</p>
-                </div>
-              );
-            }}
-          />
+        <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: '0 0 1rem 0' }}>
+          <span style={{ background: '#000', padding: '0.25rem 0' }}>Enter a user's wallet address</span>
+        </p>
+        <input
+          type="text"
+          placeholder="0x..."
+          value={walletInput}
+          onChange={e => setWalletInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleView()}
+          style={INPUT_STYLE}
+        />
+        <GlareHover
+          background="#000"
+          borderColor="#fff"
+          borderRadius="0"
+          width="auto"
+          height="auto"
+          glareColor="#ffffff"
+          glareOpacity={1}
+          glareAngle={-30}
+          glareSize={200}
+          transitionDuration={800}
+          style={{ display: 'inline-grid', marginTop: '1rem', marginBottom: '2rem', alignSelf: 'flex-start' }}
+        >
+          <button
+            onClick={handleView}
+            disabled={loading || !walletInput}
+            style={{ padding: '1rem', background: 'transparent', border: 'none', color: '#fff', ...MONO, fontSize: '1rem', cursor: 'pointer' }}
+          >
+            {loading ? 'Loading...' : 'View Deployed Contracts'}
+          </button>
+        </GlareHover>
+
+        {fetchError && (
+          <p style={{ color: '#f66', ...MONO, fontSize: '0.9rem', margin: '0 0 1rem 0' }}>Error: {fetchError}</p>
+        )}
+
+        {fetched && (
+          <>
+            <h2 style={{ color: '#fff', ...MONO, fontSize: '2rem', margin: '0 0 1rem 0' }}>
+              <span style={{ background: '#000', padding: '0.25rem 0' }}>Deployed Contracts</span>
+            </h2>
+            {contracts.length === 0 ? (
+              <p style={{ color: '#fff', ...MONO, fontSize: '1rem', margin: 0 }}>
+                <span style={{ background: '#000', padding: '0.25rem 0' }}>No deployed contracts found</span>
+              </p>
+            ) : (
+              <AnimatedList
+                items={contracts.map(c => c.address)}
+                showGradients
+                enableArrowNavigation
+                displayScrollbar
+                renderItem={(_, index) => {
+                  const c = contracts[index];
+                  return (
+                    <div style={{ ...MONO, fontSize: '1rem', color: '#fff' }}>
+                      <p style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center' }}>
+                        Contract address: {c.address}
+                        <CopyButton text={c.address} />
+                        <span
+                          onClick={e => { e.stopPropagation(); setQrAddress(c.address); }}
+                          title="Show QR code"
+                          style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', marginLeft: '0.4rem', color: '#fff' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                            <path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3" />
+                          </svg>
+                        </span>
+                      </p>
+                      <p style={{ margin: '0 0 0.25rem 0' }}>Requirements: {formatRequirements(c)}</p>
+                      <p style={{ margin: 0 }}>Timestamp: {formatTimestamp(c.timestamp)}</p>
+                    </div>
+                  );
+                }}
+              />
+            )}
+          </>
         )}
       </div>
     </Layout>

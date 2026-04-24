@@ -132,11 +132,11 @@ function Verify() {
     }
   };
 
-  const TD_KEY: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #333', color: '#fff', width: '30%', ...MONO, fontSize: '0.85rem' };
-  const TD_VAL: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #333', color: '#fff', ...MONO, fontSize: '0.85rem', wordBreak: 'break-all' };
+  const TD_KEY: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #333', color: '#fff', width: '30%', ...MONO, fontSize: '1rem' };
+  const TD_VAL: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #333', color: '#fff', ...MONO, fontSize: '1rem', wordBreak: 'break-all' };
 
   return (
-    <Layout subtitle="Select your app requirements and deploy your verifier contract">
+    <Layout subtitle="Verify a zero knowledge proof submitted by a wallet address">
       <div style={{ position: 'absolute', top: '12rem', left: '2rem', right: '2rem', bottom: '2rem', zIndex: 1, overflowY: 'auto' }}>
         <h2 style={{ color: '#fff', ...MONO, fontSize: '2rem', margin: '0 0 1rem 0' }}>
           <span style={{ background: '#000', padding: '0.25rem 0' }}>Wallet Address</span>
@@ -207,7 +207,7 @@ function Verify() {
         </GlareHover>
 
         {fetchError && (
-          <p style={{ color: '#f66', ...MONO, fontSize: '0.9rem', marginTop: '1rem' }}>Error: {fetchError}</p>
+          <p style={{ color: '#f66', ...MONO, fontSize: '1rem', marginTop: '1rem' }}>Error: {fetchError}</p>
         )}
 
         {proofDetails && (

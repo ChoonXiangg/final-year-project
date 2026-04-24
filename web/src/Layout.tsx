@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from './WalletContext';
 import PixelBlast from './components/PixelBlast';
 import GlareHover from './components/GlareHover';
-import GlitchText from './components/GlitchText';
 import StaggeredMenu from './components/StaggeredMenu';
 
 const menuItems = [
@@ -108,14 +107,9 @@ export default function Layout({ subtitle, children, onDisconnect }: LayoutProps
             cursor: 'pointer',
           }}
         >
-          <GlitchText
-            speed={1}
-            enableShadows
-            enableOnHover={false}
-            style={{ fontFamily: "'Major Mono Display', monospace", fontSize: '5rem' }}
-          >
+          <span style={{ fontFamily: "'Major Mono Display', monospace", fontSize: '5rem', color: '#fff' }}>
             ZK Identity Prover
-          </GlitchText>
+          </span>
         </div>
         <p
           style={{

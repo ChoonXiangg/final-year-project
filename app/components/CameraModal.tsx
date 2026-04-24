@@ -160,7 +160,9 @@ export default function CameraModal({ visible, onClose, onPassportScanned }: Pro
           {/* Semi-transparent overlay with passport cutout */}
           {cameraLayout.width > 0 && (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} />
+              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 20 }}>
+                <Text style={styles.hint}>scan your passport</Text>
+              </View>
               <View style={{ flexDirection: 'row', height: overlayHeight }}>
                 <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} />
                 <View style={{ width: overlayWidth, borderWidth: 2, borderColor: '#ffffff' }} />
@@ -173,8 +175,6 @@ export default function CameraModal({ visible, onClose, onPassportScanned }: Pro
           <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.7}>
             <Text style={styles.closeIcon}>✕</Text>
           </TouchableOpacity>
-
-          <Text style={styles.hint}>scan your passport</Text>
 
           <TouchableOpacity style={styles.captureButton} activeOpacity={0.8} onPress={handleCapture}>
             <View style={styles.captureButtonInner} />
@@ -208,11 +208,8 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
   hint: {
-    position: 'absolute',
-    top: 140,
-    alignSelf: 'center',
     fontFamily: 'MajorMonoDisplay_400Regular',
-    fontSize: 20,
+    fontSize: 12,
     color: '#ffffff',
     letterSpacing: 1,
   },

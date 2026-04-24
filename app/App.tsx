@@ -8,7 +8,6 @@ import { JsonRpcProvider, Contract, isAddress } from 'ethers';
 import WalletButton from './components/WalletButton';
 import CameraModal from './components/CameraModal';
 import PassportModal from './components/PassportModal';
-import ProofModal from './components/ProofModal';
 import QRScanModal from './components/QRScanModal';
 import { useProofGeneration } from './hooks/useProofGeneration';
 
@@ -39,7 +38,7 @@ export default function App() {
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const { address: walletAddress, provider: wcProvider } = useWalletConnectModal();
 
-  const { generateProof, proofLoading, proofResult, proofModalOpen, setProofModalOpen, submitProof, submitting } =
+  const { generateProof, proofLoading, proofResult, setProofModalOpen, submitProof, submitting } =
     useProofGeneration({ passportData, walletAddress, storedAddress, wcProvider });
 
   useEffect(() => {
@@ -78,23 +77,25 @@ export default function App() {
     <View style={styles.container}>
       <WalletButton />
       <Text style={styles.title}>zk identity prover</Text>
+      <Text style={styles.subtitle}>enter app verifier contract</Text>
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
-          placeholder="app verifier contract address"
+          placeholder="0x..."
           placeholderTextColor="#555"
           value={contractAddress}
           onChangeText={setContractAddress}
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <TouchableOpacity style={styles.qrButton} activeOpacity={0.7} onPress={() => setQrScanOpen(true)}>
-          <Text style={styles.contractButtonText}>qr</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.contractButton} activeOpacity={0.7} onPress={handleEnter}>
           <Text style={styles.contractButtonText}>enter</Text>
         </TouchableOpacity>
       </View>
+      <Text style={styles.orText}>or</Text>
+      <TouchableOpacity style={styles.scanQrButton} activeOpacity={0.7} onPress={() => setQrScanOpen(true)}>
+        <Text style={styles.contractButtonText}>scan contract qr</Text>
+      </TouchableOpacity>
 
       <QRScanModal
         visible={qrScanOpen}
@@ -116,15 +117,10 @@ export default function App() {
       <PassportModal
         visible={passportModalOpen}
         passportData={passportData}
-        onClose={() => setPassportModalOpen(false)}
+        proofResult={proofResult}
+        onClose={() => { setPassportModalOpen(false); setProofModalOpen(false); }}
         onGenerateProof={generateProof}
         proofLoading={proofLoading}
-      />
-
-      <ProofModal
-        visible={proofModalOpen}
-        proofResult={proofResult}
-        onClose={() => setProofModalOpen(false)}
         onSubmit={() => proofResult && submitProof(proofResult)}
         submitting={submitting}
       />
@@ -150,9 +146,18 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     paddingHorizontal: 24,
   },
+  subtitle: {
+    fontFamily: 'MajorMonoDisplay_400Regular',
+    fontSize: 12,
+    color: '#ffffff',
+    textAlign: 'center',
+    letterSpacing: 1,
+    paddingHorizontal: 24,
+    marginTop: 20,
+  },
   inputRow: {
     flexDirection: 'row',
-    marginTop: 32,
+    marginTop: 20,
     alignItems: 'center',
     paddingHorizontal: 24,
   },
@@ -167,13 +172,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
-  qrButton: {
+  orText: {
+    fontFamily: 'MajorMonoDisplay_400Regular',
+    fontSize: 12,
+    color: '#ffffff',
+    marginTop: 20,
+  },
+  scanQrButton: {
     backgroundColor: '#000000',
     borderWidth: 1,
     borderColor: '#ffffff',
-    borderLeftWidth: 0,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
+    marginTop: 20,
   },
   contractButton: {
     backgroundColor: '#000000',
@@ -181,7 +192,7 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
     borderLeftWidth: 0,
     paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
   },
   contractButtonText: {
     fontFamily: 'MajorMonoDisplay_400Regular',

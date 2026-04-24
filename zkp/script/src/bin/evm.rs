@@ -104,8 +104,17 @@ fn main() {
     let proof_bytes = proof.bytes();
     let public_values = proof.public_values.as_slice();
 
+    // In SP1 mock mode, Groth16 encoded proof bytes are not generated.
+    // Use a single zero byte so the flow proceeds with MockSP1Verifier (which ignores proof bytes).
+    let proof_hex = if proof_bytes.is_empty() {
+        print_step("Mock mode detected: using placeholder proof bytes (deploy MockSP1Verifier on-chain)");
+        "00".to_string()
+    } else {
+        hex::encode(&proof_bytes)
+    };
+
     let proof_data = serde_json::json!({
-        "proof": hex::encode(&proof_bytes),
+        "proof": proof_hex,
         "publicValues": hex::encode(public_values),
         "vkey": vk.bytes32()
     });

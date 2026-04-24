@@ -312,7 +312,6 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
     with open(proof_path) as f:
         proof_data = json.load(f)
 
-
     print(f"[job:{job_id}] Done!")
     update({
         "status": "done",

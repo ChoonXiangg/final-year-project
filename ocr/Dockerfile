@@ -22,5 +22,5 @@ ENV GOOGLE_APPLICATION_CREDENTIALS=/secrets/credentials.json
 ENV FLASK_PORT=5000
 ENV FLASK_DEBUG=false
 
-# 2 workers, 120s timeout to accommodate slow Vision API calls
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
+# 2 workers, 30s timeout (OCR only — proof generation is handled by zkp-service)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "30", "app:app"]

@@ -42,8 +42,9 @@ fn main() {
     let passport_input: PassportInput = serde_json::from_reader(std::io::stdin())
         .expect("Failed to parse passport JSON from stdin");
 
-    let reqs_path = "../verification_requirements.json";
-    let reqs_file = std::fs::File::open(reqs_path).unwrap_or_else(|_| panic!("Failed to open {}", reqs_path));
+    let reqs_path = std::env::var("VERIFICATION_REQUIREMENTS_PATH")
+        .unwrap_or_else(|_| "../verification_requirements.json".to_string());
+    let reqs_file = std::fs::File::open(&reqs_path).unwrap_or_else(|_| panic!("Failed to open {}", reqs_path));
     let reqs: VerificationRequirements = serde_json::from_reader(reqs_file).expect("Failed to parse verification_requirements.json");
 
     print_info("Document", &passport_input.document_number);
@@ -95,8 +96,8 @@ fn main() {
 
     print_success(&format!("Proof generated in {:.2?}", start.elapsed()));
 
-    let proof_dir = "../proofs";
-    std::fs::create_dir_all(proof_dir).unwrap();
+    let proof_dir = std::env::var("PROOF_DIR").unwrap_or_else(|_| "../proofs".to_string());
+    std::fs::create_dir_all(&proof_dir).unwrap();
 
     let job_id = std::env::var("PROOF_JOB_ID").unwrap_or_else(|_| "default".to_string());
     let proof_filename = format!("passport_proof_evm_{}.json", job_id);

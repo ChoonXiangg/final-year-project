@@ -5,6 +5,8 @@ import threading
 import time
 import uuid
 import tempfile
+import socket
+import http.client
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -155,6 +157,42 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
         "publicValues": proof_data.get("publicValues", ""),
         "vkey":         proof_data.get("vkey", ""),
     })
+
+
+class _UnixSocketHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, socket_path):
+        super().__init__("localhost")
+        self._socket_path = socket_path
+
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(self._socket_path)
+
+
+def _tappd_quote(report_data: str = "") -> dict:
+    socket_path = os.getenv("TAPPD_SOCKET", "/var/run/tappd.sock")
+    conn = _UnixSocketHTTPConnection(socket_path)
+    body = json.dumps({"report_data": report_data, "hash_algorithm": "sha256"})
+    conn.request("POST", "/prpc/Tappd.TdxQuote", body=body,
+                 headers={"Content-Type": "application/json"})
+    resp = conn.getresponse()
+    return json.loads(resp.read())
+
+
+@app.route("/attestation", methods=["GET"])
+def attestation():
+    socket_path = os.getenv("TAPPD_SOCKET", "/var/run/tappd.sock")
+    if not os.path.exists(socket_path):
+        return jsonify({"error": "TEE attestation not available outside Phala enclave"}), 503
+    try:
+        data = _tappd_quote()
+        return jsonify({
+            "status": "ok",
+            "quote": data.get("quote", ""),
+            "event_log": data.get("event_log", ""),
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to get attestation: {e}"}), 500
 
 
 @app.route("/health", methods=["GET"])

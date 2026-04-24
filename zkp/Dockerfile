@@ -1,24 +1,19 @@
 # ─── Stage 1: Build the evm binary ───────────────────────────────────────────
-FROM ubuntu:22.04 AS builder
+# The ZK program ELF is pre-compiled locally and copied in via the build context
+# (target/elf-compilation/ is included in .dockerignore via negation).
+# SP1_SKIP_PROGRAM_BUILD=true tells sp1-build to use the existing ELF instead of
+# recompiling it with the SP1 RISC-V toolchain, which avoids toolchain conflicts.
+FROM rust:1.82-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl build-essential pkg-config libssl-dev git ca-certificates \
+    pkg-config libssl-dev g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust (stable, matches zkp/rust-toolchain)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-ENV PATH="/root/.cargo/bin:$PATH"
-
-# Install SP1 toolchain (needed by sp1-build to compile the ZK program ELF)
-RUN curl -L https://sp1up.succinct.xyz | bash
-ENV PATH="/root/.sp1/bin:$PATH"
-RUN sp1up --version v5.2.2
-
-# Copy ZKP source and build the evm binary
 WORKDIR /zkp
 COPY . .
+
 WORKDIR /zkp/script
-RUN cargo build --release --bin evm
+RUN SP1_SKIP_PROGRAM_BUILD=true cargo build --release --bin evm
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM python:3.12-slim

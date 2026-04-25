@@ -2,7 +2,6 @@ use passport_verifier_lib::{Date, PassportAttributes};
 use sp1_sdk::{ProverClient, SP1Stdin, HashableKey};
 use std::time::Instant;
 use passport_verifier_script::utils::*;
-use alloy_sol_types::SolValue;
 use serde::Deserialize;
 
 const PASSPORT_ELF: &[u8] = include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/passport-verifier-program");
@@ -18,8 +17,7 @@ struct PassportInput {
     expiry_month: u8,
     expiry_day: u8,
     nationality: String,
-    given_names: String,
-    surname: String,
+    name: String,
     sex: String,
 }
 
@@ -34,7 +32,6 @@ struct VerificationRequirements {
 }
 
 fn main() {
-    // Enable verbose logging (debug level)
     std::env::set_var("RUST_LOG", "debug");
     sp1_sdk::utils::setup_logger();
     dotenv::dotenv().ok();
@@ -42,19 +39,17 @@ fn main() {
     print_banner();
     print_step("Initializing SP1 Prover (EVM Mode)...");
 
-    // Passport data is read from stdin (piped from the OCR service):
-    //   curl -s http://localhost:5000/passport | cargo run --bin evm
     let passport_input: PassportInput = serde_json::from_reader(std::io::stdin())
         .expect("Failed to parse passport JSON from stdin");
 
-    let reqs_path = "../verification_requirements.json";
-    let reqs_file = std::fs::File::open(reqs_path).unwrap_or_else(|_| panic!("Failed to open {}", reqs_path));
+    let reqs_path = std::env::var("VERIFICATION_REQUIREMENTS_PATH")
+        .unwrap_or_else(|_| "../verification_requirements.json".to_string());
+    let reqs_file = std::fs::File::open(&reqs_path).unwrap_or_else(|_| panic!("Failed to open {}", reqs_path));
     let reqs: VerificationRequirements = serde_json::from_reader(reqs_file).expect("Failed to parse verification_requirements.json");
 
     print_info("Document", &passport_input.document_number);
     print_info("Binding To", &reqs.wallet_address);
 
-    // Setup inputs
     let passport = PassportAttributes {
         document_number: passport_input.document_number,
         date_of_birth: Date {
@@ -68,8 +63,7 @@ fn main() {
             day: passport_input.expiry_day 
         }, 
         nationality: passport_input.nationality,
-        given_names: passport_input.given_names,
-        surname: passport_input.surname,
+        name: passport_input.name,
         sex: passport_input.sex,
     };
 
@@ -98,25 +92,37 @@ fn main() {
 
     print_step("Generating EVM Proof (Groth16)...");
     let start = Instant::now();
-    
-    // Generate proof - Force Groth16 for Sepolia
     let proof = client.prove(&pk, &stdin).groth16().run().expect("Groth16 proof failed");
 
     print_success(&format!("Proof generated in {:.2?}", start.elapsed()));
 
-    // Save proof to root/proofs
-    let proof_dir = "../proofs";
-    std::fs::create_dir_all(proof_dir).unwrap();
-    
+    let proof_dir = std::env::var("PROOF_DIR").unwrap_or_else(|_| "../proofs".to_string());
+    std::fs::create_dir_all(&proof_dir).unwrap();
+
+    let job_id = std::env::var("PROOF_JOB_ID").unwrap_or_else(|_| "default".to_string());
+    let proof_filename = format!("passport_proof_evm_{}.json", job_id);
+
     let proof_bytes = proof.bytes();
     let public_values = proof.public_values.as_slice();
-    
+
+    // In SP1 mock mode, Groth16 encoded proof bytes are not generated.
+    // Use a single zero byte so the flow proceeds with MockSP1Verifier (which ignores proof bytes).
+    let proof_hex = if proof_bytes.is_empty() {
+        print_step("Mock mode detected: using placeholder proof bytes (deploy MockSP1Verifier on-chain)");
+        "00".to_string()
+    } else {
+        hex::encode(&proof_bytes)
+    };
+
     let proof_data = serde_json::json!({
-        "proof": hex::encode(&proof_bytes),
+        "proof": proof_hex,
         "publicValues": hex::encode(public_values),
         "vkey": vk.bytes32()
     });
-    std::fs::write(format!("{}/passport_proof_evm.json", proof_dir), serde_json::to_string_pretty(&proof_data).unwrap()).unwrap();
-    
-    print_success(&format!("Proof saved to {}/passport_proof_evm.json", proof_dir));
+    std::fs::write(
+        format!("{}/{}", proof_dir, proof_filename),
+        serde_json::to_string_pretty(&proof_data).unwrap(),
+    ).unwrap();
+
+    print_success(&format!("Proof saved to {}/{}", proof_dir, proof_filename));
 }

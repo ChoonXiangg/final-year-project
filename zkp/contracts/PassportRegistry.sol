@@ -6,10 +6,7 @@ pragma solidity ^0.8.20;
 contract PassportRegistry {
     address public owner;
 
-    // commitment => wallet
     mapping(bytes32 => address) public commitments;
-
-    // Authorized verifier contracts that can register identities
     mapping(address => bool) public authorizedVerifiers;
 
     event IdentityRegistered(bytes32 indexed commitment, address indexed wallet);
@@ -57,14 +54,11 @@ contract PassportRegistry {
         address existing = commitments[commitment];
 
         if (existing == address(0)) {
-            // First registration — bind commitment to wallet
             commitments[commitment] = wallet;
             emit IdentityRegistered(commitment, wallet);
         } else if (existing != wallet) {
-            // Already registered to a different wallet
             revert WalletMismatch();
         }
-        // If existing == wallet, it's a re-verification — no-op
     }
 
     function getWallet(bytes32 commitment) external view returns (address) {

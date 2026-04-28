@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Alert, Linking } from 'react-native';
 import { Interface } from 'ethers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { extractVerifierAddress } from '../utils/proof';
 
 const OCR_API_URL = process.env.EXPO_PUBLIC_OCR_API_URL ?? '';
 const POLL_INTERVAL_MS = 60_000;
@@ -21,15 +22,6 @@ interface Params {
   wcProvider: any;
 }
 
-// publicValues ABI layout (after stripping the leading 32-byte offset):
-//   bytes32 identityHash  → chars 0–63
-//   address walletAddress → chars 64–127  (last 40 are the address)
-//   address verifierAddr  → chars 128–191 (last 40 are the address)
-function extractVerifierAddress(publicValues: string): string {
-  const hex = publicValues.replace(/^0x/, '');
-  // skip 32-byte ABI offset (64 chars) then identityHash (64) then wallet (64)
-  return '0x' + hex.slice(64 + 64 + 64 + 24, 64 + 64 + 64 + 64);
-}
 
 export function useProofGeneration({ passportData, walletAddress, storedAddress, wcProvider }: Params) {
   const [proofLoading, setProofLoading] = useState(false);

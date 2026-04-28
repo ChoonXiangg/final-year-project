@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-CORS(app, origins=_allowed_origins if _allowed_origins else [])
+CORS(app, origins=_allowed_origins if _allowed_origins else "*")
 
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./credentials.json")
 ZKP_SERVICE_URL = os.getenv("ZKP_SERVICE_URL", "http://localhost:8080")
@@ -101,6 +101,15 @@ def generate_proof():
 def proof_status(job_id):
     try:
         resp = http.get(f"{ZKP_SERVICE_URL}/proof-status/{job_id}", timeout=10)
+        return jsonify(resp.json()), resp.status_code
+    except Exception as e:
+        return jsonify({"error": f"Failed to reach ZKP service: {e}"}), 502
+
+
+@app.route("/attestation", methods=["GET"])
+def attestation():
+    try:
+        resp = http.get(f"{ZKP_SERVICE_URL}/attestation", timeout=10)
         return jsonify(resp.json()), resp.status_code
     except Exception as e:
         return jsonify({"error": f"Failed to reach ZKP service: {e}"}), 502

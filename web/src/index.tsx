@@ -5,6 +5,7 @@ import './index.css';
 import App from './App';
 import DeployedContracts from './DeployedContracts';
 import Verify from './Verify';
+import Attestation from './Attestation';
 import { WalletProvider } from './WalletContext';
 
 const root = ReactDOM.createRoot(
@@ -18,6 +19,7 @@ root.render(
           <Route path="/" element={<App />} />
           <Route path="/deployed" element={<DeployedContracts />} />
           <Route path="/verify" element={<Verify />} />
+          <Route path="/attestation" element={<Attestation />} />
         </Routes>
       </WalletProvider>
     </BrowserRouter>

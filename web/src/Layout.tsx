@@ -9,6 +9,7 @@ const menuItems = [
   { label: 'Deploy', ariaLabel: 'Deploy a verifier contract', link: '/' },
   { label: 'View', ariaLabel: 'View deployed contracts', link: '/deployed' },
   { label: 'Verify', ariaLabel: 'Verify a ZK proof', link: '/verify' },
+  { label: 'TEE', ariaLabel: 'TEE attestation', link: '/attestation' },
 ];
 
 const socialItems = [

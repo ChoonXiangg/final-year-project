@@ -6,7 +6,7 @@ import { COUNTRIES } from './data/countries';
 import Layout, { MONO, ensureSepoliaNetwork, FACTORY_ADDRESS } from './Layout';
 
 const SP1_VERIFIER_ADDRESS = '0x397A5f7f3dBd538f23DE225B51f532c34448dA9B';
-const PASSPORT_VKEY = '0x00930f8b802c260e02f8e400fa7470cfaa4e1a04d51a7840e2f18ebe8d564cdc';
+const PASSPORT_VKEY = '0x004c92a66d4575eb7d261bdbc9cab840f64a6f988c7b05df1a811a45537e7722';
 
 const FACTORY_ABI = [
   'function createVerifier(address _sp1Verifier, bytes32 _passportVKey, bool _requireAge, uint256 _minAge, bool _requireNationality, string _targetNationality, bool _requireSex, string _targetSex) external returns (address)',

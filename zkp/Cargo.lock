@@ -3906,6 +3906,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp1-build",
+ "sp1-recursion-gnark-ffi",
  "sp1-sdk",
  "tracing",
 ]

@@ -32,7 +32,7 @@ export default function ProofModal({ visible, proofResult, onClose, onSubmit, su
               ].map(([label, value]) => (
                 <View key={label} style={styles.row}>
                   <Text style={styles.label}>{label}</Text>
-                  <Text style={styles.value} numberOfLines={4} ellipsizeMode="middle">
+                  <Text style={styles.value}>
                     {value}
                   </Text>
                 </View>

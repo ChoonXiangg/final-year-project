@@ -15,9 +15,10 @@ interface Props {
   proofLoading: boolean;
   onSubmit: () => void;
   submitting: boolean;
+  onClearProof: () => void;
 }
 
-export default function PassportModal({ visible, passportData, proofResult, onClose, onGenerateProof, proofLoading, onSubmit, submitting }: Props) {
+export default function PassportModal({ visible, passportData, proofResult, onClose, onGenerateProof, proofLoading, onSubmit, submitting, onClearProof }: Props) {
   const showProof = proofResult !== null;
 
   return (
@@ -53,6 +54,14 @@ export default function PassportModal({ visible, passportData, proofResult, onCl
               disabled={submitting}
             >
               <Text style={styles.actionButtonText}>{submitting ? 'submitting...' : 'submit on-chain'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.discardButton}
+              activeOpacity={0.7}
+              onPress={onClearProof}
+              disabled={submitting}
+            >
+              <Text style={styles.discardButtonText}>discard proof</Text>
             </TouchableOpacity>
           </>
         ) : passportData ? (
@@ -161,5 +170,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ffffff',
     fontWeight: 'bold',
+  },
+  discardButton: {
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 24,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  discardButtonText: {
+    fontFamily: 'MajorMonoDisplay_400Regular',
+    fontSize: 10,
+    color: '#555',
   },
 });

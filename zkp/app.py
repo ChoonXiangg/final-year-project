@@ -87,44 +87,66 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
 
     # Write requirements to a per-job temp file so concurrent jobs don't collide
     reqs_fd, reqs_path = tempfile.mkstemp(suffix=f"_{job_id}.json", prefix="reqs_")
+    with os.fdopen(reqs_fd, "w") as f:
+        json.dump(reqs, f, indent=4)
+    print(f"[job:{job_id}] Written requirements to {reqs_path}")
+
+    passport_input = {
+        "documentNumber": passport.get("documentNumber", ""),
+        "birthYear":      passport.get("birthYear", 0),
+        "birthMonth":     passport.get("birthMonth", 0),
+        "birthDay":       passport.get("birthDay", 0),
+        "expiryYear":     passport.get("expiryYear", 0),
+        "expiryMonth":    passport.get("expiryMonth", 0),
+        "expiryDay":      passport.get("expiryDay", 0),
+        "nationality":    passport.get("nationality", ""),
+        "name":           passport.get("name", ""),
+        "sex":            passport.get("sex", ""),
+    }
+    print(f"[job:{job_id}] Passport input: {passport_input}")
+
+    env = os.environ.copy()
+    env["PROOF_JOB_ID"]                   = job_id
+    env["VERIFICATION_REQUIREMENTS_PATH"] = reqs_path
+    env["PROOF_DIR"]                      = PROOF_DIR
+    env.setdefault("RUST_LOG", "info")
+    print(f"[job:{job_id}] SP1_PROVER: {env.get('SP1_PROVER', 'not set')}")
+    print(f"[job:{job_id}] RUST_LOG: {env.get('RUST_LOG')}")
+    print(f"[job:{job_id}] Running evm binary...", flush=True)
+
+    stderr_lines: list = []
+
+    def _pipe_stream(stream, label: str, collected: list):
+        for raw in stream:
+            line = raw.rstrip(b"\n").decode("utf-8", errors="replace")
+            print(f"[job:{job_id}][{label}] {line}", flush=True)
+            collected.append(line)
+
     try:
-        with os.fdopen(reqs_fd, "w") as f:
-            json.dump(reqs, f, indent=4)
-        print(f"[job:{job_id}] Written requirements to {reqs_path}")
-
-        passport_input = {
-            "documentNumber": passport.get("documentNumber", ""),
-            "birthYear":      passport.get("birthYear", 0),
-            "birthMonth":     passport.get("birthMonth", 0),
-            "birthDay":       passport.get("birthDay", 0),
-            "expiryYear":     passport.get("expiryYear", 0),
-            "expiryMonth":    passport.get("expiryMonth", 0),
-            "expiryDay":      passport.get("expiryDay", 0),
-            "nationality":    passport.get("nationality", ""),
-            "name":           passport.get("name", ""),
-            "sex":            passport.get("sex", ""),
-        }
-        print(f"[job:{job_id}] Passport input: {passport_input}")
-
-        env = os.environ.copy()
-        env["PROOF_JOB_ID"]                   = job_id
-        env["VERIFICATION_REQUIREMENTS_PATH"] = reqs_path
-        env["PROOF_DIR"]                      = PROOF_DIR
-        print(f"[job:{job_id}] SP1_PROVER: {env.get('SP1_PROVER', 'not set')}")
-        print(f"[job:{job_id}] Running evm binary...")
-
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [EVM_BINARY],
-            input=json.dumps(passport_input),
-            capture_output=True,
-            text=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             env=env,
-            timeout=7200,
         )
-        print(f"[job:{job_id}] exited with code: {result.returncode}")
-        if result.stdout: print(f"[job:{job_id}] stdout:\n{result.stdout}")
-        if result.stderr: print(f"[job:{job_id}] stderr:\n{result.stderr}")
+        proc.stdin.write(json.dumps(passport_input).encode())
+        proc.stdin.close()
+
+        t_out = threading.Thread(target=_pipe_stream, args=(proc.stdout, "stdout", []))
+        t_err = threading.Thread(target=_pipe_stream, args=(proc.stderr, "stderr", stderr_lines))
+        t_out.start()
+        t_err.start()
+
+        proc.wait(timeout=7200)
+        t_out.join()
+        t_err.join()
+        returncode = proc.returncode
+        print(f"[job:{job_id}] exited with code: {returncode}", flush=True)
     except subprocess.TimeoutExpired:
+        proc.kill()
+        t_out.join()
+        t_err.join()
         _update_job(job_id, {"status": "error", "error": "Proof generation timed out after 2 hours"})
         return
     finally:
@@ -133,8 +155,8 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
         except OSError:
             pass
 
-    if result.returncode != 0:
-        _update_job(job_id, {"status": "error", "error": "Proof generation failed", "stderr": result.stderr[-500:]})
+    if returncode != 0:
+        _update_job(job_id, {"status": "error", "error": "Proof generation failed", "stderr": "\n".join(stderr_lines[-20:])})
         return
 
     proof_path = os.path.join(PROOF_DIR, f"passport_proof_evm_{job_id}.json")
@@ -151,6 +173,9 @@ def _run_proof_job(job_id: str, passport: dict, wallet_address: str, verifier_ad
         pass
 
     print(f"[job:{job_id}] Done!")
+    print(f"[job:{job_id}] proof:        {proof_data.get('proof', '')}")
+    print(f"[job:{job_id}] publicValues: {proof_data.get('publicValues', '')}")
+    print(f"[job:{job_id}] vkey:         {proof_data.get('vkey', '')}")
     _update_job(job_id, {
         "status":       "done",
         "proof":        proof_data.get("proof", ""),

@@ -38,7 +38,7 @@ export default function App() {
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const { address: walletAddress, provider: wcProvider } = useWalletConnectModal();
 
-  const { generateProof, proofLoading, proofResult, setProofModalOpen, submitProof, submitting } =
+  const { generateProof, proofLoading, proofResult, setProofModalOpen, submitProof, submitting, clearProof } =
     useProofGeneration({ passportData, walletAddress, storedAddress, wcProvider });
 
   useEffect(() => {
@@ -123,6 +123,7 @@ export default function App() {
         proofLoading={proofLoading}
         onSubmit={() => proofResult && submitProof(proofResult)}
         submitting={submitting}
+        onClearProof={clearProof}
       />
 
       <StatusBar style="light" />
